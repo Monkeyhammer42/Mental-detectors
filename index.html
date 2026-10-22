@@ -30,25 +30,22 @@ canvas{display:block;width:100%;height:100%}
 #signal{position:absolute;top:calc(68px + env(safe-area-inset-top,0px));left:calc(10px + env(safe-area-inset-left,0px));
   width:150px;height:8px;border-radius:6px;background:var(--hud);overflow:hidden;pointer-events:none}
 #signal i{display:block;height:100%;width:0;background:#cfe7a8;transition:width .08s linear}
-#prices{position:absolute;top:calc(82px + env(safe-area-inset-top,0px));left:calc(10px + env(safe-area-inset-left,0px));
-  background:var(--hud);border-radius:8px;padding:4px 8px;font-size:11px;font-weight:800;pointer-events:none;font-variant-numeric:tabular-nums}
-#prices b{color:var(--gold);font-weight:800}
-#prices:empty{display:none}
-#fx{position:absolute;top:calc(110px + env(safe-area-inset-top,0px));left:calc(10px + env(safe-area-inset-left,0px));
+#fx{position:absolute;top:calc(82px + env(safe-area-inset-top,0px));left:calc(10px + env(safe-area-inset-left,0px));
   display:flex;flex-wrap:wrap;gap:4px;max-width:200px;pointer-events:none}
 #fx span{background:var(--hud);border-radius:8px;padding:3px 8px;font-size:11px;font-weight:800;letter-spacing:.04em;font-variant-numeric:tabular-nums;border-left:3px solid var(--c,#8fe6ff)}
 #powBtn{right:calc(30px + env(safe-area-inset-right,0px));bottom:calc(146px + env(safe-area-inset-bottom,0px));width:70px;height:70px;
   font-size:12px;background:#2c7fa0;box-shadow:0 0 0 5px rgba(143,230,255,.35);animation:glow 1.2s ease-in-out infinite alternate;line-height:1.05;padding:0}
 #powBtn small{display:block;font:800 9px var(--body);letter-spacing:.08em;opacity:.85}
 @keyframes glow{to{box-shadow:0 0 0 9px rgba(143,230,255,.15)}}
-#shop{position:absolute;left:calc(10px + env(safe-area-inset-left,0px));bottom:calc(20px + env(safe-area-inset-bottom,0px));
-  background:var(--paper);color:var(--ink);border-radius:14px;padding:8px;display:flex;flex-direction:column;gap:6px;width:min(230px,52vw);box-shadow:0 6px 20px rgba(0,0,0,.35)}
-#shop h3{margin:0 4px;font:400 14px var(--display);color:#2f4a1c;display:flex;justify-content:space-between;align-items:baseline}
-#shop h3 small{font:800 11px var(--body);color:#8a4a1c}
-#shop button{display:flex;justify-content:space-between;align-items:center;gap:8px;border:0;border-radius:10px;padding:8px 10px;background:#e6dcc0;color:var(--ink);font:800 13px var(--body);text-align:left}
-#shop button b{font:400 13px var(--display);color:#8a4a1c;white-space:nowrap}
-#shop button span{display:block;font-weight:600;font-size:10px;color:#6d5f38;line-height:1.2}
+#shop{position:absolute;left:calc(10px + env(safe-area-inset-left,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));
+  background:rgba(244,236,212,.92);color:var(--ink);border-radius:10px;padding:4px;display:flex;align-items:center;gap:4px;box-shadow:0 3px 10px rgba(0,0,0,.3)}
+#shop h3{margin:0 2px;font:400 11px var(--display);color:#2f4a1c;display:flex;flex-direction:column;line-height:1.1}
+#shop h3 small{font:800 10px var(--body);color:#8a4a1c}
+#shop button{display:flex;flex-direction:column;align-items:center;border:0;border-radius:8px;padding:4px 7px;background:#e6dcc0;color:var(--ink);font:800 11px var(--body);line-height:1.15}
+#shop button b{font:400 11px var(--display);color:#8a4a1c;white-space:nowrap}
+#shop button span{display:none}
 #shop button:disabled{opacity:.45}
+#game.left #shop{left:auto;right:calc(10px + env(safe-area-inset-right,0px))}
 .topright{position:absolute;top:calc(10px + env(safe-area-inset-top,0px));right:calc(10px + env(safe-area-inset-right,0px));
   display:flex;flex-direction:column;align-items:flex-end;gap:6px}
 #mute{width:44px;height:36px;border-radius:10px;border:0;background:var(--hud);color:var(--paper);font:800 12px var(--body)}
@@ -62,6 +59,18 @@ canvas{display:block;width:100%;height:100%}
 #digBtn.ready{background:var(--dig);opacity:1;box-shadow:0 0 0 6px rgba(240,189,52,.35)}
 #bonkBtn{right:calc(132px + env(safe-area-inset-right,0px));bottom:calc(92px + env(safe-area-inset-bottom,0px));width:82px;height:82px;font-size:17px;background:#4b5560;opacity:.8}
 #bonkBtn.ready{background:var(--bonk);opacity:1;box-shadow:0 0 0 6px rgba(255,90,90,.3)}
+#game.left #digBtn{right:auto;left:calc(20px + env(safe-area-inset-left,0px))}
+#game.left #bonkBtn{right:auto;left:calc(132px + env(safe-area-inset-left,0px))}
+#game.left #powBtn{right:auto;left:calc(30px + env(safe-area-inset-left,0px))}
+#game.high #digBtn{bottom:calc(150px + env(safe-area-inset-bottom,0px))}
+#game.high #bonkBtn{bottom:calc(216px + env(safe-area-inset-bottom,0px))}
+#game.high #powBtn{bottom:calc(270px + env(safe-area-inset-bottom,0px))}
+#game.split #bonkBtn{right:auto;left:calc(20px + env(safe-area-inset-left,0px));bottom:calc(36px + env(safe-area-inset-bottom,0px))}
+#game.split.swap #digBtn{right:auto;left:calc(20px + env(safe-area-inset-left,0px))}
+#game.split.swap #bonkBtn{left:auto;right:calc(20px + env(safe-area-inset-right,0px))}
+#game.split.swap #powBtn{right:auto;left:calc(30px + env(safe-area-inset-left,0px))}
+#game.split #shop{left:50%;right:auto;transform:translateX(-50%);bottom:calc(140px + env(safe-area-inset-bottom,0px))}
+#layoutBtn{width:44px;height:36px;border-radius:10px;border:0;background:var(--hud);color:var(--paper);font:800 16px var(--body)}
 .btn.hit{transform:scale(.9)}
 #digBtn.off,#bonkBtn.off{opacity:.3}
 #digBtn.shake{animation:shake .25s}
@@ -166,21 +175,21 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
   </div>
   <div id="signal" aria-hidden="true"><i id="sigBar"></i></div>
   <div id="tide" hidden></div>
-  <div id="prices" aria-label="Museum shop prices"></div>
   <div id="fx" aria-live="polite"></div>
   <div id="banner" hidden aria-live="assertive"><b id="bannerT"></b><span id="bannerS"></span></div>
   <div class="topright">
     <button id="mute" aria-label="Toggle sound">SND</button>
+    <button id="layoutBtn" aria-label="Move the buttons" title="Move the buttons">&#8644;</button>
     <ol id="board" aria-label="Banked totals"></ol>
   </div>
   <button id="bonkBtn" class="btn" aria-label="Bonk">BONK</button>
   <button id="digBtn" class="btn" aria-label="Dig">DIG</button>
   <button id="powBtn" class="btn" aria-label="Use powerup" hidden></button>
   <div id="shop" hidden>
-    <h3>Museum shop <small id="shopPts">0 pts</small></h3>
-    <button id="buy-p"><div>Padlock<span>Blocks a bonk while you carry finds</span></div><b>100</b></button>
-    <button id="buy-s"><div>Scarecrow<span>No magpies for 30s</span></div><b>150</b></button>
-    <button id="buy-d"><div>Decoy<span>Fake gold that's junk</span></div><b>200</b></button>
+    <h3>Shop <small id="shopPts">0 pts</small></h3>
+    <button id="buy-p" title="Padlock: blocks a bonk while you carry finds"><div>Lock</div><b>100</b></button>
+    <button id="buy-s" title="Scarecrow: no birds for 30s"><div>Scare</div><b>150</b></button>
+    <button id="buy-d" title="Decoy: fake gold that's junk"><div>Decoy</div><b>200</b></button>
   </div>
 
   <div id="home" class="overlay">
@@ -995,7 +1004,6 @@ function startRound(m){
   curEv = null; bolts = new Map(); furrows = []; flash = 0; $('banner').hidden = true;
   if (m.event) startEvent(m.event.kind, m.event.dur, m.event.data, m.event.dur - m.event.left);
   $('tide').hidden = !TIDE;
-  $('prices').innerHTML = 'SHOP &middot; ' + ['p', 's', 'd'].filter(k => POWERS[k]).map(k => `${POWERS[k].short.charAt(0) + POWERS[k].short.slice(1).toLowerCase()} <b>${POWERS[k].cost}</b>`).join(' &middot; ');
   for (const k of ['p', 's', 'd']) if (POWERS[k]) $('buy-' + k).querySelector('b').textContent = POWERS[k].cost;
   heavies = new Map((m.heavies || []).map(([id, x, y, name, cs, hp, wait]) => [id, {id, x, y, tx: x, ty: y, name, carriers: cs ? cs.split(',').map(Number) : [], hp: hp ?? 8, wait: wait ?? 10}]));
   trails = []; effects = []; flies = []; traps = new Map((m.traps || []).map(([id, x, y, owner]) => [id, {id, x, y, owner}])); ROUND = m.round; DUSK = m.dusk; timeLeft = m.tl; crates = new Map(); lockedId = null;
@@ -1333,6 +1341,16 @@ document.addEventListener('visibilitychange', () => { if (document.hidden) relea
 addEventListener('touchend', e => { if (!e.touches.length) stick.id = null; }, {passive: true});
 addEventListener('touchcancel', e => { if (!e.touches.length) stick.id = null; }, {passive: true});
 const digBtn = $('digBtn'), bonkBtn = $('bonkBtn');
+// where the dig and bonk buttons sit: tap the arrows button to cycle through six layouts (remembered on this phone)
+const LAYOUTS = [['', 'Buttons: bottom right'], ['high', 'Buttons: right, higher up'], ['left', 'Buttons: bottom left'], ['left high', 'Buttons: left, higher up'], ['split', 'Dig right, bonk left'], ['split swap', 'Dig left, bonk right']];
+let layout = 0; try { layout = Math.max(0, LAYOUTS.findIndex(l => l[0] === (localStorage.getItem('fk-layout') || ''))); } catch (_) {}
+function applyLayout(){ $('game').classList.remove('left', 'high', 'split', 'swap'); for (const c of LAYOUTS[layout][0].split(' ').filter(Boolean)) $('game').classList.add(c); }
+applyLayout();
+$('layoutBtn').addEventListener('click', () => {
+  layout = (layout + 1) % LAYOUTS.length; applyLayout();
+  try { localStorage.setItem('fk-layout', LAYOUTS[layout][0]); } catch (_) {}
+  if (me) floatAt(me.x, me.y - 60, LAYOUTS[layout][1], '#ffffff', {small: true});
+});
 const press = el => { el.classList.remove('hit'); void el.offsetWidth; el.classList.add('hit'); };
 digBtn.addEventListener('pointerdown', e => { e.preventDefault(); playerDig(); });
 bonkBtn.addEventListener('pointerdown', e => { e.preventDefault(); playerBonk(); });

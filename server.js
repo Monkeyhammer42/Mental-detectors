@@ -89,7 +89,7 @@ const EVENTS = {
 };
 const KEEPER_SPEED = 125, AVALANCHE_W = 560, AVALANCHE_SPEED = 280, SKIER_SPEED = 300;
 const CLUB = ['Ken', 'Pat', 'Doreen', 'Clive', 'Mags'];
-const BONK_REACH = 48, BONK_ARC = 1.3, BONK_REWIND = 0.25; // px, radians either side of facing, seconds
+const BONK_REACH = 48, BONK_ARC = 1.3, BONK_REWIND = 0.15; // px, radians either side of facing, seconds
 const BOLT_R = 46, TRACTOR_SPEED = 170;
 const waveOffset = t => t < 2 ? 0 : t < 4 ? (t - 2) / 2 * 330 : t < 7 ? 330 : t < 11 ? (11 - t) / 4 * 330 : 0;
 const ROUND = Number(process.env.ROUND) || 180, DUSK = 30, TICK_MS = 50;
