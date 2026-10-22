@@ -134,6 +134,13 @@ canvas.stage{width:100%;height:auto;border-radius:12px;display:block;margin-bott
 .lgrid button span em{display:block;font-style:normal;font-weight:600;font-size:11px;color:#6d5f38;line-height:1.3}
 .panel .wgrid button.locked{opacity:.55}
 .panel button.loadOpen{margin-top:10px}
+#codeBox,#pickName{z-index:5}
+.gwrap{display:flex;flex-direction:column;align-items:center;gap:0;margin:2px 0 4px;min-height:44px}
+.recCode{font:400 26px var(--display);letter-spacing:.06em;white-space:nowrap;color:var(--dig);text-align:center;margin:6px 0 10px;user-select:all;-webkit-user-select:all;font-variant-numeric:tabular-nums}
+.acctRow{border-top:1px solid #ddd1b0;padding:10px 0}
+.acctRow h3{margin:0 0 6px;font:800 12px var(--body);letter-spacing:.12em;text-transform:uppercase;color:#6d5f38}
+.ok{color:#3f5a2a;font-weight:800;font-size:14px}
+.linkRow{display:flex;justify-content:space-between;align-items:center;gap:8px}
 button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 @media (prefers-reduced-motion: reduce){.btn{transition:none}#digBtn.shake{animation:none}#powBtn{animation:none}}
 </style>
@@ -170,17 +177,18 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
       <div id="dbWarn" class="warn" hidden></div>
       <div id="authOut">
         <p>Sign in to earn XP, level up and keep your coins and outfits on any phone.</p>
+        <div id="gWrap" class="gwrap" hidden><div id="gBtnHome"></div><div class="or" style="margin:10px 0 2px">OR WITH A NAME</div></div>
         <label for="nameIn">Name</label>
         <input id="nameIn" maxlength="12" autocomplete="username" placeholder="e.g. Michael">
         <label for="passIn">Password</label>
         <input id="passIn" type="password" maxlength="72" autocomplete="current-password" placeholder="6 or more characters">
         <div class="row2"><button id="loginBtn" class="alt">Sign in</button><button id="signupBtn" class="alt">New account</button></div>
-        <p class="note">Or play below as a guest. Guests don't earn coins or XP.</p>
+        <div class="linkRow"><span class="note">Or play below as a guest.</span><button id="forgotBtn" class="link">Forgot password?</button></div>
       </div>
       <div id="authIn" hidden>
         <div class="profile"><div><b id="pName">Michael</b><small>Level <span class="lvlN">1</span></small></div><span class="coins"><i></i><b class="coinN">0</b></span></div>
         <div class="xpbar"><i class="xpFill"></i></div>
-        <div class="row2" style="justify-content:space-between;align-items:center"><span class="note xpText">0 / 300 XP</span><button id="logoutBtn" class="link">Sign out</button></div>
+        <div class="row2" style="justify-content:space-between;align-items:center"><span class="note xpText">0 / 300 XP</span><button id="acctBtn" class="link">Account</button></div>
       </div>
       <p class="err" id="authErr"></p>
       <button id="createBtn">Create game</button>
@@ -243,6 +251,71 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
       <div class="wgrid lgrid" id="lGrid"></div>
       <p class="note" id="lMsg"></p>
       <button id="lDone" class="alt">Done</button>
+    </div>
+  </div>
+
+  <div id="pickName" class="overlay" hidden>
+    <div class="panel">
+      <h2>Pick your digger name</h2>
+      <p>This is what other players see. It can't be one someone else already has.</p>
+      <label for="gName">Name</label>
+      <input id="gName" maxlength="12" autocomplete="off">
+      <p class="err" id="gNameErr"></p>
+      <button id="gNameGo">Create account</button>
+      <button id="gNameCancel" class="ghost">Cancel</button>
+    </div>
+  </div>
+
+  <div id="recover" class="overlay" hidden>
+    <div class="panel">
+      <h2>Forgot your password?</h2>
+      <p>If your account is linked to Google, just use the Google button instead. Otherwise use the recovery code you were given when you signed up.</p>
+      <label for="rName">Name</label>
+      <input id="rName" maxlength="12" autocomplete="username">
+      <label for="rCode">Recovery code</label>
+      <input id="rCode" maxlength="16" autocomplete="off" placeholder="ABCD-EFGH-JKLM" style="text-transform:uppercase;letter-spacing:.08em">
+      <label for="rPass">New password</label>
+      <input id="rPass" type="password" maxlength="72" autocomplete="new-password" placeholder="6 or more characters">
+      <p class="err" id="rErr"></p>
+      <button id="rGo">Reset password</button>
+      <button id="rCancel" class="ghost">Cancel</button>
+    </div>
+  </div>
+
+  <div id="codeBox" class="overlay" hidden>
+    <div class="panel">
+      <h2>Your recovery code</h2>
+      <div class="recCode" id="recCode">----</div>
+      <button id="copyCode" class="ghost">Copy code</button>
+      <p style="margin-top:12px">If you ever forget your password, this code lets you set a new one. Each code works once, and you get a fresh one when you use it. Screenshot it or keep it somewhere safe: it won't be shown again.</p>
+      <button id="codeDone">I've saved it</button>
+    </div>
+  </div>
+
+  <div id="acct" class="overlay" hidden>
+    <div class="panel">
+      <h2 id="acctName">Account</h2>
+      <div class="acctRow">
+        <h3>Google</h3>
+        <p class="ok" id="gLinked" hidden>Linked. You can sign in with Google on any phone.</p>
+        <div id="gLinkWrap" hidden><p class="note">Link Google so you can sign in with one tap and get back in if you forget your password.</p><div class="gwrap"><div id="gBtnLink"></div></div></div>
+        <p class="note" id="gOff" hidden>Google sign-in isn't switched on for this server yet.</p>
+      </div>
+      <div class="acctRow">
+        <h3 id="pwTitle">Change password</h3>
+        <div id="curWrap"><label for="pwCur">Current password</label><input id="pwCur" type="password" maxlength="72" autocomplete="current-password"></div>
+        <label for="pwNew">New password</label>
+        <input id="pwNew" type="password" maxlength="72" autocomplete="new-password" placeholder="6 or more characters">
+        <button id="pwGo" class="alt">Save password</button>
+      </div>
+      <div class="acctRow">
+        <h3>Recovery code</h3>
+        <p class="note" id="recNote"></p>
+        <button id="newCodeBtn" class="ghost">Get a new recovery code</button>
+      </div>
+      <p class="err" id="acctErr"></p>
+      <p class="ok" id="acctOk"></p>
+      <div class="row2"><button id="logoutBtn" class="ghost">Sign out</button><button id="acctDone" class="alt">Done</button></div>
     </div>
   </div>
 </div>
@@ -387,6 +460,7 @@ async function boot(){
   try {
     const c = await api('/api/catalog');
     CAT = c.catalog; LOADOUT_CFG = c.loadout; LEVELS = c.levels;
+    if (c.googleClientId) startGoogle(c.googleClientId);
     if (!c.persistent){ $('dbWarn').hidden = false; $('dbWarn').textContent = c.dbError || "Accounts aren't being saved on this server yet (no database connected)."; }
   } catch (_) {}
   if (token){ try { setProfile((await api('/api/me', {})).profile); } catch (_) {} }
@@ -403,17 +477,93 @@ async function auth(kind){
   try {
     const body = {name, password}; if (kind === 'signup' && legacy) body.import = legacy;
     const r = await api('/api/' + kind, body);
-    token = r.token; store('fk-token', token); store('fk-name', name);
+    signedIn(r, 'password'); store('fk-name', name);
     if (kind === 'signup' && legacy){ store('fk-wardrobe', null); legacy = null; }
     $('passIn').value = '';
-    setProfile(r.profile); chime();
+    if (r.recovery) showCode(r.recovery);
   } catch (e) { $('authErr').textContent = e.message; }
   $('loginBtn').disabled = $('signupBtn').disabled = false;
 }
 $('loginBtn').addEventListener('click', () => { unlockAudio(); auth('login'); });
 $('signupBtn').addEventListener('click', () => { unlockAudio(); auth('signup'); });
 $('passIn').addEventListener('keydown', e => { if (e.key === 'Enter') auth('login'); });
-$('logoutBtn').addEventListener('click', async () => { try { await api('/api/logout', {}); } catch (_) {} token = null; store('fk-token', null); setProfile(null); });
+$('logoutBtn').addEventListener('click', async () => { try { await api('/api/logout', {}); } catch (_) {} token = null; store('fk-token', null); store('fk-kind', null); setProfile(null); $('acct').hidden = true; });
+function signedIn(r, kind){ token = r.token; store('fk-token', token); store('fk-kind', kind); setProfile(r.profile); chime(); }
+function showCode(code){ $('recCode').textContent = code; $('codeBox').hidden = false; }
+$('copyCode').addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText($('recCode').textContent); $('copyCode').textContent = 'Copied'; }
+  catch (_) { const r = document.createRange(); r.selectNodeContents($('recCode')); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); $('copyCode').textContent = 'Selected: copy it now'; }
+  setTimeout(() => $('copyCode').textContent = 'Copy code', 2500);
+});
+$('codeDone').addEventListener('click', () => { $('codeBox').hidden = true; });
+
+// ----- Google -----
+let gReady = false, gMode = 'signin', gPending = null;
+function startGoogle(clientId){
+  const sc = document.createElement('script'); sc.src = 'https://accounts.google.com/gsi/client'; sc.async = true;
+  sc.onload = () => {
+    google.accounts.id.initialize({client_id: clientId, callback: onGoogle, cancel_on_tap_outside: true});
+    gReady = true; $('gWrap').hidden = false;
+    google.accounts.id.renderButton($('gBtnHome'), {theme: 'outline', size: 'large', shape: 'pill', text: 'continue_with', width: 280});
+    renderAcct();
+  };
+  document.head.append(sc);
+}
+async function onGoogle(resp){
+  $('authErr').textContent = ''; $('acctErr').textContent = '';
+  try {
+    if (gMode === 'link' && profile){ setProfile((await api('/api/link-google', {credential: resp.credential})).profile); $('acctOk').textContent = 'Google linked.'; renderAcct(); return; }
+    const r = await api('/api/google', {credential: resp.credential, import: legacy || undefined});
+    if (r.needName){ gPending = resp.credential; $('gName').value = r.suggestion; $('gNameErr').textContent = ''; $('pickName').hidden = false; return; }
+    signedIn(r, 'google');
+  } catch (e) { (gMode === 'link' ? $('acctErr') : $('authErr')).textContent = e.message; }
+}
+$('gNameGo').addEventListener('click', async () => {
+  $('gNameErr').textContent = '';
+  try {
+    const r = await api('/api/google', {credential: gPending, name: $('gName').value.trim(), import: legacy || undefined});
+    if (legacy){ store('fk-wardrobe', null); legacy = null; }
+    $('pickName').hidden = true; signedIn(r, 'google');
+  } catch (e) { $('gNameErr').textContent = e.message; }
+});
+$('gNameCancel').addEventListener('click', () => { $('pickName').hidden = true; gPending = null; });
+
+// ----- forgot password -----
+$('forgotBtn').addEventListener('click', () => { $('rName').value = $('nameIn').value; $('rErr').textContent = ''; $('recover').hidden = false; });
+$('rCancel').addEventListener('click', () => { $('recover').hidden = true; });
+$('rGo').addEventListener('click', async () => {
+  $('rErr').textContent = '';
+  try {
+    const r = await api('/api/recover', {name: $('rName').value.trim(), code: $('rCode').value, password: $('rPass').value});
+    $('recover').hidden = true; $('rCode').value = $('rPass').value = '';
+    signedIn(r, 'recovery'); showCode(r.recovery);
+  } catch (e) { $('rErr').textContent = e.message; }
+});
+
+// ----- account panel -----
+function renderAcct(){
+  if (!profile) return;
+  $('acctName').textContent = profile.name;
+  $('gLinked').hidden = !profile.google; $('gOff').hidden = gReady || profile.google;
+  $('gLinkWrap').hidden = profile.google || !gReady;
+  if (gReady && !profile.google && !$('gBtnLink').childElementCount) google.accounts.id.renderButton($('gBtnLink'), {theme: 'outline', size: 'large', shape: 'pill', text: 'continue_with', width: 260});
+  let kind = 'password'; try { kind = localStorage.getItem('fk-kind') || 'password'; } catch (_) {}
+  $('pwTitle').textContent = profile.hasPassword ? 'Change password' : 'Set a password';
+  $('curWrap').hidden = !profile.hasPassword || kind !== 'password';
+  $('recNote').textContent = profile.hasRecovery ? 'You have one. Getting a new one cancels the old one.' : "You don't have one yet. Get one so you can reset a forgotten password.";
+}
+$('acctBtn').addEventListener('click', () => { gMode = 'link'; $('acctErr').textContent = $('acctOk').textContent = ''; renderAcct(); $('acct').hidden = false; });
+$('acctDone').addEventListener('click', () => { $('acct').hidden = true; gMode = 'signin'; });
+$('pwGo').addEventListener('click', async () => {
+  $('acctErr').textContent = $('acctOk').textContent = '';
+  try { setProfile((await api('/api/password', {current: $('pwCur').value, password: $('pwNew').value})).profile); $('pwCur').value = $('pwNew').value = ''; $('acctOk').textContent = 'Password saved.'; renderAcct(); }
+  catch (e) { $('acctErr').textContent = e.message; }
+});
+$('newCodeBtn').addEventListener('click', async () => {
+  $('acctErr').textContent = '';
+  try { const r = await api('/api/recovery-code', {}); setProfile(r.profile); renderAcct(); showCode(r.recovery); }
+  catch (e) { $('acctErr').textContent = e.message; }
+});
 
 // ----- wardrobe -----
 let wTab = 'hat', trying = {}, wStage = null;
@@ -509,7 +659,7 @@ document.querySelectorAll('.loadOpen').forEach(b => b.addEventListener('click', 
 $('lDone').addEventListener('click', () => { $('loadout').hidden = true; });
 
 // ---------- screens ----------
-function show(id){ for (const s of ['home','lobby','end','wardrobe','loadout']) $(s).hidden = s !== id; }
+function show(id){ for (const s of ['home','lobby','end','wardrobe','loadout','pickName','recover','codeBox','acct']) $(s).hidden = s !== id; }
 const params = new URLSearchParams(location.search);
 try { $('nameIn').value = localStorage.getItem('fk-name') || ''; } catch (_) {}
 if (params.get('room')){ $('codeIn').value = params.get('room').toUpperCase().slice(0, 4); $('joinBtn').textContent = `Join game ${$('codeIn').value}`; }

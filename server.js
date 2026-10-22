@@ -6,6 +6,8 @@ const path = require('path');
 const crypto = require('crypto');
 const { EventEmitter } = require('events');
 const { Accounts, UserError, CATALOG, LOADOUT: LOADOUT_CFG, xpForLevel, MAX_LEVEL } = require('./accounts');
+const { verifyGoogleToken } = require('./googleauth');
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || null;
 
 const PORT = process.env.PORT || 3000;
 let accounts = new Accounts(process.env.DATABASE_URL), dbError = null;
@@ -758,17 +760,41 @@ async function api(req, res) {
   const send = (code, obj) => { res.writeHead(code, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(obj)); };
   const path = req.url.split('?')[0];
   try {
-    if (path === '/api/catalog') return send(200, { catalog: CATALOG, loadout: LOADOUT_CFG, levels: Array.from({ length: MAX_LEVEL }, (_, i) => xpForLevel(i + 1)), persistent: accounts.persistent, dbError });
+    if (path === '/api/catalog') return send(200, { catalog: CATALOG, loadout: LOADOUT_CFG, levels: Array.from({ length: MAX_LEVEL }, (_, i) => xpForLevel(i + 1)), persistent: accounts.persistent, dbError, googleClientId: GOOGLE_CLIENT_ID });
     if (req.method !== 'POST') return send(405, { error: 'Use POST.' });
     const body = await readJson(req);
     const ip = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
+    const slow = () => limited(ip) && send(429, { error: 'Too many attempts. Wait a few minutes and try again.' });
     if (path === '/api/signup' || path === '/api/login') {
-      if (limited(ip)) return send(429, { error: 'Too many attempts. Wait a few minutes and try again.' });
+      if (slow()) return;
       const r = path === '/api/signup' ? await accounts.signup(body.name, body.password, body.import) : await accounts.login(body.name, body.password);
+      return send(200, { token: r.token, profile: accounts.profile(r.acct), recovery: r.recovery });
+    }
+    if (path === '/api/recover') {
+      if (slow()) return;
+      const r = await accounts.recover(body.name, body.code, body.password);
+      return send(200, { token: r.token, profile: accounts.profile(r.acct), recovery: r.recovery });
+    }
+    if (path === '/api/google') {
+      if (slow()) return;
+      let claims; try { claims = await verifyGoogleToken(body.credential, GOOGLE_CLIENT_ID); } catch (e) { throw new UserError(e.message); }
+      const r = body.name ? await accounts.googleSignUp(claims, body.name, body.import) : await accounts.googleSignIn(claims);
+      if (r.needName) return send(200, { needName: true, suggestion: r.suggestion });
       return send(200, { token: r.token, profile: accounts.profile(r.acct) });
     }
-    const token = bearer(req), acct = await accounts.bySession(token);
+    const token = bearer(req), sess = await accounts.session(token), acct = sess && sess.acct;
     if (!acct) return send(401, { error: 'Please sign in again.' });
+    if (path === '/api/link-google') {
+      let claims; try { claims = await verifyGoogleToken(body.credential, GOOGLE_CLIENT_ID); } catch (e) { throw new UserError(e.message); }
+      await accounts.linkGoogle(acct, claims);
+      return send(200, { profile: accounts.profile(acct) });
+    }
+    if (path === '/api/password') {
+      if (slow()) return;
+      await accounts.setPassword(acct, sess.kind, body.current, body.password);
+      return send(200, { profile: accounts.profile(acct) });
+    }
+    if (path === '/api/recovery-code') { const recovery = await accounts.newRecovery(acct); return send(200, { recovery, profile: accounts.profile(acct) }); }
     if (path === '/api/me') return send(200, { profile: accounts.profile(acct) });
     if (path === '/api/logout') { await accounts.logout(token); return send(200, { ok: true }); }
     if (path === '/api/buy') { await accounts.buy(acct, String(body.cat), String(body.id)); return send(200, { profile: accounts.profile(acct) }); }
