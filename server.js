@@ -14,7 +14,36 @@ let accounts = new Accounts(process.env.DATABASE_URL), dbError = null;
 const INDEX_PATH = path.join(__dirname, 'index.html');
 
 // ---------- game constants ----------
-const WORLD = 1800, MUSEUM = { x: 900, y: 880, w: 220, h: 150 };
+const WORLD = 1800;
+// ---------- maps ----------
+const MAPS = {
+  field: { id: 'field', name: "Farmer's Field", museum: { x: 900, y: 880, w: 220, h: 150 }, top: 70 },
+  beach: { id: 'beach', name: 'The Beach', museum: { x: 900, y: 230, w: 220, h: 150 }, top: 470,
+    tide: { mid: 1340, amp: 320, period: 60 },  // sea edge moves between y 1020 (high) and 1660 (low)
+    wreck: { x: 900, y: 1560, r: 230 } },
+};
+const BEACH_NAMES = {
+  0: ['Sea glass', 'Ring pull', 'Fishing hook', 'Lolly stick', 'Bottle cap', 'Lost earring', 'Toy spade'],
+  1: ['Old penny', 'Fishing weight', 'Brass button', 'Buckle', 'Musket ball', 'Pier token'],
+  2: ['Silver shilling', 'Pocket watch', 'Silver locket', 'Signet ring', 'Silver bangle'],
+  3: ['Gold sovereign', 'Gold ring', 'Jewelled brooch', 'Gold chain'],
+  5: ["Ship's anchor", "Ship's cannon", 'Figurehead', "Ship's bell", 'Treasure chest', "Ship's wheel"],
+};
+const WRECK_NAMES = { 0: ['Rusty chain link', 'Barnacled bolt'], 1: ["Ship's nail", 'Porthole latch', 'Cannonball'], 2: ['Piece of eight', "Ship's compass", 'Spyglass'], 3: ['Gold doubloon', "Captain's ring", 'Jewelled cutlass'] };
+const WRECK_W = [5, 30, 40, 25], WRECK_ITEMS = 7;
+// ---------- random events: two per round, one in each half ----------
+const EVENTS = {
+  storm:    { dur: 22 },               // lightning strikes near players
+  tractor:  { dur: 13, map: 'field' }, // ploughs a row, runs people over
+  club:     { dur: 26 },               // a coach party of detectorists digs out one area
+  goldrush: { dur: 20 },               // extra silver and gold, new finds a tier better
+  fog:      { dur: 25 },               // you can only see a short way
+  wave:     { dur: 11, map: 'beach' }, // a rogue wave surges up the beach
+  swarm:    { dur: 12 },               // a flock goes after anyone carrying finds
+};
+const CLUB = ['Ken', 'Pat', 'Doreen', 'Clive', 'Mags'];
+const BOLT_R = 46, TRACTOR_SPEED = 170;
+const waveOffset = t => t < 2 ? 0 : t < 4 ? (t - 2) / 2 * 330 : t < 7 ? 330 : t < 11 ? (11 - t) / 4 * 330 : 0;
 const ROUND = Number(process.env.ROUND) || 180, DUSK = 30, TICK_MS = 50;
 const MIN_DIGGERS = 6, MAX_PLAYERS = 8, ITEMS = 60;
 const BOT_SENSE = 260;      // how far a bot's detector reaches
@@ -80,9 +109,7 @@ const holeR = ti => 9 + TYPES[ti].taps * 0.9;
 const clampW = v => Math.max(50, Math.min(WORLD - 50, v));
 const bagValue = d => d.bag.reduce((a, b) => a + TYPES[b.ti].v, 0);
 const shiny = d => d.bag.some(b => TYPES[b.ti].v >= 40);
-function inMuseumZone(x, y, pad = 0) {
-  return x > MUSEUM.x - MUSEUM.w / 2 - pad && x < MUSEUM.x + MUSEUM.w / 2 + pad && y > MUSEUM.y - MUSEUM.h / 2 - pad && y < MUSEUM.y + MUSEUM.h / 2 + pad;
-}
+
 function pushOut(d, x, y, min) {
   let dx = d.x - x, dy = d.y - y, dd = Math.hypot(dx, dy);
   if (dd < min) { if (dd < 0.01) { dx = 1; dy = 0; dd = 1; } d.x = x + dx / dd * min; d.y = y + dy / dd * min; return true; }
@@ -98,17 +125,21 @@ class Room {
     this.state = 'lobby';
     this.host = null;
     this.nextId = 1;
+    this.mapId = 'field'; this.map = MAPS.field; this.M = this.map.museum;
     this.resetWorld();
   }
   resetWorld() {
     this.diggers = []; this.buried = []; this.holes = []; this.loose = []; this.magpies = [];
     this.ev = []; this.timeLeft = ROUND; this.magpieT = 10; this.uid = 1; this.t = 0;
     this.crates = []; this.crateT = CRATE_FIRST; this.heavies = []; this.traps = [];
+    this.sea = this.map.tide ? this.map.tide.mid : Infinity; this.washT = 2; this.wreckT = 5;
+    this.event = null; this.usedEvents = []; this.bolts = [];
+    this.evPlan = [ROUND * (0.22 + Math.random() * 0.12), ROUND * (0.56 + Math.random() * 0.12)];
   }
   send(ws, obj) { if (ws.readyState === 1) ws.send(JSON.stringify(obj)); }
   broadcast(obj) { const s = JSON.stringify(obj); for (const ws of this.clients.keys()) if (ws.readyState === 1) ws.send(s); }
   lobbyMsg() {
-    this.broadcast({ t: 'lobby', code: this.code, host: this.host, state: this.state,
+    this.broadcast({ t: 'lobby', code: this.code, host: this.host, state: this.state, map: this.mapId,
       players: [...this.clients.values()].map(c => ({ id: c.id, name: c.name, col: c.col, lvl: c.lvl, guest: !c.acct })) });
   }
   addClient(ws, name, rawLook, acct) {
@@ -145,13 +176,20 @@ class Room {
   }
   makeDigger(id, name, col, isBot, slot, look, lvl) {
     const a = slot / 6 * Math.PI * 2 + 0.4;
-    return { id, name, col, isBot, look: look || botLook(), lvl: isBot ? 1 + (Math.random() * 15 | 0) : lvl || 0, lucky: 0, x: MUSEUM.x + Math.cos(a) * 170, y: MUSEUM.y + 10 + Math.sin(a) * 140, dir: a,
+    return { id, name, col, isBot, look: look || botLook(), lvl: isBot ? 1 + (Math.random() * 15 | 0) : lvl || 0, lucky: 0, x: this.M.x + Math.cos(a) * 170, y: this.M.y + 10 + Math.sin(a) * 140, dir: a,
       bag: [], banked: 0, stun: 0, immune: 0, bonkCd: 0, swing: 0, moving: false, lastDig: 0, power: null, fx: {}, padlock: false, carry: null, grief: 0, griefT: 0, tired: 0,
       ai: isBot ? { mode: 'hunt', item: null, think: 0, digT: 0, digRate: 2 + Math.random() * 1, bankAt: 40 + Math.random() * 110,
         aggro: 0.3 + Math.random() * 0.6, robCd: 4 + Math.random() * 6, chase: 0, victim: null, loot: null,
         lx: 0, ly: 0, stuckT: 0, detour: 0, detourA: 0, wander: null } : null };
   }
+  inMuseum(x, y, pad = 0) {
+    const M = this.M;
+    return x > M.x - M.w / 2 - pad && x < M.x + M.w / 2 + pad && y > M.y - M.h / 2 - pad && y < M.y + M.h / 2 + pad;
+  }
+  underwater(y, margin = 0) { return y > this.sea - margin; }
+  setMap(id) { if (MAPS[id] && this.state !== 'play') { this.mapId = id; this.lobbyMsg(); } }
   start() {
+    this.map = MAPS[this.mapId]; this.M = this.map.museum;
     this.resetWorld();
     const humans = [...this.clients.values()];
     humans.forEach((c, i) => this.diggers.push(this.makeDigger(c.id, c.name, c.col, false, i, c.look, c.lvl)));
@@ -159,6 +197,7 @@ class Room {
     for (let i = 0; i < bots; i++) { const [n, col] = BOTS[i]; this.diggers.push(this.makeDigger(1000 + i, n, col, true, humans.length + i)); }
     for (let i = 0; i < ITEMS; i++) this.spawnItem(false);
     for (let i = 0; i < HEAVIES; i++) this.spawnItem(false, HEAVY);
+    if (this.map.wreck) for (let i = 0; i < WRECK_ITEMS; i++) this.spawnWreckItem();
     this.ev = []; this.traps = [];
     this.state = 'play';
     // starting powerups are paid for from the account as the round begins
@@ -171,8 +210,8 @@ class Room {
     this.lobbyMsg();
   }
   initMsg(you) {
-    return { t: 'init', you, types: TYPES, powers: POWERS, world: WORLD, museum: MUSEUM, round: ROUND, dusk: DUSK, tl: this.timeLeft,
-      diggers: this.diggers.map(d => ({ id: d.id, name: d.name, col: d.col, bot: d.isBot ? 1 : 0, look: d.look, lvl: d.lvl })),
+    return { t: 'init', you, types: TYPES, powers: POWERS, world: WORLD, museum: this.M, map: this.mapId, tide: this.map.tide || null, wreck: this.map.wreck || null, top: this.map.top, sea: Math.round(this.sea), round: ROUND, dusk: DUSK, tl: this.timeLeft, event: this.event ? { kind: this.event.kind, left: this.event.dur - this.event.t, dur: this.event.dur, data: this.event.data } : null,
+      diggers: this.diggers.map(d => ({ id: d.id, name: d.name, col: d.col, bot: d.isBot ? 1 : 0, look: d.look, lvl: d.lvl, npc: d.npc ? 1 : 0 })),
       traps: (this.traps || []).map(tr => [tr.id, Math.round(tr.x), Math.round(tr.y), tr.owner]),
       buried: this.buried.map(b => [b.id, Math.round(b.x), Math.round(b.y), b.ti, b.prog, b.name, b.owner || 0]),
       holes: this.holes.map(h => [Math.round(h.x), Math.round(h.y), h.r]),
@@ -181,7 +220,7 @@ class Room {
   }
   end() {
     this.state = 'end';
-    const ranked = [...this.diggers].sort((a, b) => b.banked - a.banked);
+    const ranked = this.diggers.filter(d => !d.npc).sort((a, b) => b.banked - a.banked);
     this.broadcast({ t: 'end', rank: ranked.map(d => [d.id, d.name, d.col, d.banked, d.isBot ? 1 : 0]) });
     // coins and XP go onto each signed-in player's account
     for (const [ws, c] of this.clients) {
@@ -199,30 +238,76 @@ class Room {
   // ----- world -----
   humanNear(x, y, r) { return this.diggers.some(d => !d.isBot && Math.hypot(d.x - x, d.y - y) < r); }
   inHole(x, y, pad) { return this.holes.some(h => Math.hypot(h.x - x, h.y - y) < h.r + pad); }
-  spawnItem(awayFromPlayers, forceTi) {
+  itemName(ti, wreck) {
+    const pool = wreck ? WRECK_NAMES[ti] : this.mapId === 'beach' ? BEACH_NAMES[ti] : null;
+    return pick(pool || TYPES[ti].names);
+  }
+  spawnItem(awayFromPlayers, forceTi, band) {
     for (let tries = 0; tries < 60; tries++) {
-      const x = 70 + Math.random() * (WORLD - 140), y = 70 + Math.random() * (WORLD - 140);
-      if (inMuseumZone(x, y, 90)) continue;
+      const y0 = band ? band[0] : this.map.top, y1 = band ? band[1] : Math.min(WORLD - 70, this.sea - 40);
+      if (y1 <= y0) return;
+      const x = 70 + Math.random() * (WORLD - 140), y = y0 + Math.random() * (y1 - y0);
+      if (this.inMuseum(x, y, 90) || this.underwater(y, 30)) continue;
+      if (this.map.wreck && Math.hypot(x - this.map.wreck.x, y - this.map.wreck.y) < this.map.wreck.r) continue;
       if (awayFromPlayers && this.humanNear(x, y, 400)) continue;
       if (this.buried.some(b => Math.hypot(b.x - x, b.y - y) < 60)) continue;
       if (this.inHole(x, y, 40)) continue;
-      const ti = forceTi != null ? forceTi : Math.random() < BOX_CHANCE ? BOX : pickTypeIdx();
-      let name = pick(TYPES[ti].names);
-      if (ti === HEAVY) { const used = new Set([...this.buried, ...this.heavies].map(o => o.name)); name = pick(TYPES[HEAVY].names.filter(n => !used.has(n))) || name; }
+      let ti = forceTi != null ? forceTi : Math.random() < BOX_CHANCE ? BOX : pickTypeIdx();
+      if (forceTi == null && ti < 3 && this.event && this.event.kind === 'goldrush') ti++;
+      let name = this.itemName(ti);
+      if (ti === HEAVY) { const used = new Set([...this.buried, ...this.heavies].map(o => o.name)); name = pick((this.mapId === 'beach' ? BEACH_NAMES[HEAVY] : TYPES[HEAVY].names).filter(n => !used.has(n))) || name; }
       const b = { id: this.uid++, x, y, ti, name, prog: 0 };
       this.buried.push(b);
-      if (awayFromPlayers) this.ev.push(['spawn', b.id, Math.round(x), Math.round(y), ti, b.name, 0]);
+      if (this.state === 'play') this.ev.push(['spawn', b.id, Math.round(x), Math.round(y), ti, b.name, 0]);
       return;
     }
   }
+  // the shipwreck: richer, ship-themed finds, only reachable when the tide is out
+  spawnWreckItem() {
+    const W = this.map.wreck;
+    for (let tries = 0; tries < 40; tries++) {
+      const a = Math.random() * Math.PI * 2, r = 40 + Math.random() * (W.r - 40);
+      const x = W.x + Math.cos(a) * r * 1.4, y = W.y + Math.sin(a) * r * 0.55;
+      if (this.buried.some(b => Math.hypot(b.x - x, b.y - y) < 45) || this.inHole(x, y, 30) || y > WORLD - 60) continue;
+      let w = Math.random() * 100, ti = 0; for (let i = 0; i < 4; i++) { if ((w -= WRECK_W[i]) < 0) { ti = i; break; } }
+      const b = { id: this.uid++, x, y, ti, name: this.itemName(ti, true), prog: 0, wreck: true };
+      this.buried.push(b);
+      if (this.state === 'play') this.ev.push(['spawn', b.id, Math.round(x), Math.round(y), ti, b.name, 0]);
+      return;
+    }
+  }
+  // the tide: covers the lower beach, smooths holes, washes things away, leaves fresh finds as it goes out
+  updateTide(dt) {
+    const T = this.map.tide; if (!T) return;
+    const prev = this.sea;
+    this.sea = T.mid + T.amp * Math.sin(2 * Math.PI * this.t / T.period) - (this.event && this.event.kind === 'wave' ? waveOffset(this.event.t) : 0);
+    const goingOut = this.sea > prev;
+    const before = this.holes.length;
+    this.holes = this.holes.filter(h => !this.underwater(h.y, -8));
+    if (this.holes.length !== before) this.ev.push(['hclear', Math.round(this.sea + 8)]);
+    for (const l of [...this.loose]) if (this.underwater(l.y)) { this.loose.splice(this.loose.indexOf(l), 1); this.ev.push(['washed', l.id]); }
+    this.crates = this.crates.filter(c => !this.underwater(c.y));
+    for (const tr of [...this.traps]) if (this.underwater(tr.y)) { this.traps.splice(this.traps.indexOf(tr), 1); this.ev.push(['trapgone', tr.id]); }
+    for (const h of [...this.heavies]) if (!h.carriers.length && this.underwater(h.y)) {
+      this.heavies.splice(this.heavies.indexOf(h), 1); this.ev.push(['hsea', h.id, h.name]); this.spawnItem(true, HEAVY);
+    }
+    if (goingOut && (this.washT -= dt) <= 0) { // fresh finds on newly uncovered sand
+      this.washT = 1.1;
+      if (this.buried.filter(b => !b.wreck && b.ti !== HEAVY).length < ITEMS + 12) this.spawnItem(true, null, [this.sea - 170, this.sea - 35]);
+    }
+    if ((this.wreckT -= dt) <= 0) { this.wreckT = 4; if (this.buried.filter(b => b.wreck).length < WRECK_ITEMS) this.spawnWreckItem(); }
+    for (const d of this.diggers) if (this.underwater(d.y, -45) && !d.carry) { // too deep: the waves push you back
+      d.y = this.sea + 30; if (!d.isBot) this.ev.push(['pos', d.id, Math.round(d.x), Math.round(d.y)]);
+    }
+  }
   findTarget(d, id) {
-    if (id != null) { const b = this.buried.find(x => x.id === id); if (b && b.owner !== d.id && dist(b, d) < DIG_REACH + 10) return b; }
+    if (id != null) { const b = this.buried.find(x => x.id === id); if (b && b.owner !== d.id && !this.underwater(b.y, 4) && dist(b, d) < DIG_REACH + 10) return b; }
     let best = null, bd = DIG_REACH;
-    for (const b of this.buried) { if (b.owner === d.id) continue; const dd = dist(b, d); if (dd < bd) { bd = dd; best = b; } }
+    for (const b of this.buried) { if (b.owner === d.id || this.underwater(b.y, 4)) continue; const dd = dist(b, d); if (dd < bd) { bd = dd; best = b; } }
     return best;
   }
   digAt(d, item) {
-    if (d.stun > 0 || !this.buried.includes(item)) return;
+    if (d.stun > 0 || !this.buried.includes(item) || this.underwater(item.y, 4)) return;
     item.prog = Math.min(TYPES[item.ti].taps, item.prog + (d.fx.t > 0 ? 2 : 1));
     this.ev.push(['prog', item.id, item.prog, d.id]);
     if (item.prog < TYPES[item.ti].taps) return;
@@ -254,6 +339,130 @@ class Room {
     this.spawnItem(true);
   }
 
+  // ----- random events -----
+  dryPoint(minFromMuseum) {
+    for (let i = 0; i < 40; i++) {
+      const x = 200 + Math.random() * (WORLD - 400), y = this.map.top + 120 + Math.random() * Math.max(50, Math.min(WORLD - 200, this.sea - 220) - this.map.top - 120);
+      if (Math.hypot(x - this.M.x, y - this.M.y) > minFromMuseum) return { x, y };
+    }
+    return { x: 400, y: Math.min(WORLD - 300, this.sea - 250) };
+  }
+  startEvent() {
+    const options = Object.keys(EVENTS).filter(k => (!EVENTS[k].map || EVENTS[k].map === this.mapId) && !this.usedEvents.includes(k));
+    if (!options.length) return;
+    const kind = pick(options); this.usedEvents.push(kind);
+    const ev = this.event = { kind, t: 0, dur: EVENTS[kind].dur, data: {}, boltT: 2 };
+    if (kind === 'tractor') {
+      let y = 0;
+      for (let i = 0; i < 30; i++) { y = this.map.top + 150 + Math.random() * (WORLD - 300 - this.map.top); if (Math.abs(y - this.M.y) > 170) break; }
+      const dir = Math.random() < 0.5 ? 1 : -1;
+      ev.data = { y: Math.round(y), x0: dir > 0 ? -120 : WORLD + 120, dir, speed: TRACTOR_SPEED };
+    }
+    if (kind === 'club') {
+      const c = this.dryPoint(400); ev.data = { x: Math.round(c.x), y: Math.round(c.y), r: 260 };
+      const names = [...CLUB].sort(() => Math.random() - 0.5).slice(0, 4);
+      names.forEach((n, i) => {
+        const d = this.makeDigger(2000 + this.uid++, 'Club ' + n, '#7d8a6a', true, 0, { hat: pick(['bucket', 'cap', 'deer']), jacket: 'auto', boots: 'green', pack: 'canvas', pet: 'none', trail: 'none', det: 'retro', spade: 'old', win: 'confetti' });
+        d.npc = true; d.lvl = 0; d.ai.area = ev.data; d.ai.digRate = 2.4;
+        d.x = c.x < WORLD / 2 ? 60 : WORLD - 60; d.y = c.y - 60 + i * 40;
+        this.diggers.push(d);
+        this.ev.push(['join', { id: d.id, name: d.name, col: d.col, bot: 1, npc: 1, look: d.look, lvl: 0 }]);
+      });
+    }
+    if (kind === 'goldrush') for (let i = 0; i < 10; i++) this.spawnItem(false, Math.random() < 0.6 ? 2 : 3);
+    if (kind === 'swarm') {
+      const open = this.diggers.filter(d => !(d.fx.s > 0) && !this.inMuseum(d.x, d.y, 30) && !d.npc);
+      const targets = open.filter(d => d.bag.length).sort((a, b) => bagValue(b) - bagValue(a)).slice(0, 4);
+      for (const d of open.sort(() => Math.random() - 0.5)) if (targets.length < 3 && !targets.includes(d)) targets.push(d);
+      targets.forEach(tg => this.spawnBirdAt(tg, true));
+      ev.data = { birds: targets.length };
+    }
+    this.ev.push(['evstart', kind, ev.dur, ev.data]);
+  }
+  endEvent() {
+    const ev = this.event; this.event = null; this.bolts = [];
+    if (ev.kind === 'club') for (const d of this.diggers.filter(x => x.npc)) {
+      if (d.carry) this.unlift(d);
+      this.diggers.splice(this.diggers.indexOf(d), 1); this.ev.push(['leave', d.id]);
+    }
+    this.ev.push(['evend', ev.kind]);
+  }
+  updateEvent(dt) {
+    if (!this.event) {
+      if (this.evPlan.length && this.t >= this.evPlan[0]) { this.evPlan.shift(); if (this.timeLeft > 15) this.startEvent(); }
+      return;
+    }
+    const ev = this.event; ev.t += dt;
+    if (ev.kind === 'storm' && ev.t < ev.dur - 1.5 && (ev.boltT -= dt) <= 0) {
+      ev.boltT = 1.4 + Math.random() * 1.2;
+      for (let n = 0; n < 2; n++) {
+        const pool = this.diggers.filter(d => !this.inMuseum(d.x, d.y, 30) && !this.underwater(d.y));
+        const near = pool.length && Math.random() < 0.7 ? pick(pool) : null;
+        const p = near ? { x: near.x + (Math.random() - 0.5) * 140, y: near.y + (Math.random() - 0.5) * 140 } : this.dryPoint(150);
+        const b = { id: this.uid++, x: clampW(p.x), y: clampW(p.y), t: 1.1 };
+        this.bolts.push(b); this.ev.push(['bolt', b.id, Math.round(b.x), Math.round(b.y)]);
+      }
+    }
+    for (const b of [...this.bolts]) {
+      if ((b.t -= dt) > 0) continue;
+      this.bolts.splice(this.bolts.indexOf(b), 1);
+      const hit = [];
+      for (const d of this.diggers) {
+        if (Math.hypot(d.x - b.x, d.y - b.y) > BOLT_R || this.inMuseum(d.x, d.y, 10)) continue;
+        hit.push(d.id);
+        if (d.carry) { const h = d.carry; this.hitHeavy(h, { id: 0 }); if (this.heavies.includes(h)) this.hitHeavy(h, { id: 0 }); continue; }
+        d.stun = 1.5; d.immune = 2;
+        const dropped = this.takeBest(d); if (dropped) this.dropLoose(dropped, d.x, d.y, Math.random() * 7, d.id);
+      }
+      this.ev.push(['strike', b.id, Math.round(b.x), Math.round(b.y), hit.join(',')]);
+    }
+    if (ev.kind === 'tractor') {
+      const D = ev.data, x = D.x0 + D.dir * D.speed * ev.t;
+      for (const b of this.buried) { // ploughed up: nearly dug already
+        if (b.ploughed || Math.abs(b.y - D.y) > 55 || (D.dir > 0 ? b.x > x : b.x < x) || b.ti === HEAVY) continue;
+        b.ploughed = true;
+        if (b.prog < TYPES[b.ti].taps - 1) { b.prog = TYPES[b.ti].taps - 1; this.ev.push(['prog', b.id, b.prog, 0]); }
+      }
+      if (ev.t > 0.5 && ev.t < 0.6) for (let i = 0; i < 6; i++) { // and turns up a few more finds along the row
+        this.spawnItem(false, null, [D.y - 40, D.y + 40]);
+        const nb = this.buried[this.buried.length - 1]; if (nb && Math.abs(nb.y - D.y) <= 40) nb.ploughed = false;
+      }
+      for (const d of this.diggers) {
+        if (d.runT > 0) { d.runT -= dt; continue; }
+        if (Math.abs(d.x - x) > 46 || Math.abs(d.y - D.y) > 36) continue;
+        d.runT = 2; d.stun = 1.2; d.immune = 2;
+        d.y = clampW(d.y + (d.y < D.y ? -70 : 70));
+        if (!d.isBot) this.ev.push(['pos', d.id, Math.round(d.x), Math.round(d.y)]);
+        if (d.carry) this.unlift(d);
+        const dropped = this.takeBest(d); if (dropped) this.dropLoose(dropped, d.x, d.y, D.y < d.y ? Math.PI / 2 : -Math.PI / 2, d.id);
+        this.ev.push(['runover', d.id, dropped ? dropped.ti : -1, dropped ? dropped.name : '']);
+      }
+    }
+    if (ev.t >= ev.dur) this.endEvent();
+  }
+  // detecting club members: dig out their patch, never bank, leave when the coach does
+  clubThink(b, dt) {
+    const ai = b.ai, A = ai.area;
+    if (!ai.item || !this.buried.includes(ai.item) || this.underwater(ai.item.y, 4)) {
+      ai.item = null; let bd = 1e9;
+      for (const it of this.buried) {
+        if (it.owner || it.ti === HEAVY || this.underwater(it.y, 10) || Math.hypot(it.x - A.x, it.y - A.y) > A.r) continue;
+        if (this.diggers.some(o => o !== b && o.npc && o.ai.item === it)) continue;
+        const dd = dist(it, b); if (dd < bd) { bd = dd; ai.item = it; }
+      }
+    }
+    if (ai.item && dist(b, ai.item) < 30) {
+      turnTo(b, Math.atan2(ai.item.y - b.y, ai.item.x - b.x), dt); b.moving = false;
+      if ((ai.digT -= dt) <= 0) { ai.digT = 1 / ai.digRate; this.digAt(b, ai.item); }
+      return;
+    }
+    let gx, gy;
+    if (ai.item) { gx = ai.item.x; gy = ai.item.y; }
+    else { if (!ai.wander || Math.hypot(ai.wander.x - b.x, ai.wander.y - b.y) < 30) { const a = Math.random() * 7, r = Math.random() * A.r; ai.wander = { x: A.x + Math.cos(a) * r, y: A.y + Math.sin(a) * r }; } gx = ai.wander.x; gy = ai.wander.y; }
+    const ang = Math.atan2(gy - b.y, gx - b.x);
+    this.moveDigger(b, Math.cos(ang), Math.sin(ang), dt, 140);
+  }
+
   // ----- heavy finds: two people carry, the points are split -----
   lift(d, h) {
     if (d.carry || d.stun > 0 || !this.heavies.includes(h) || h.carriers.length >= 2 || dist(d, h) > 46) return;
@@ -273,7 +482,7 @@ class Room {
       if (h.carriers.length === 1 && !this.diggers.some(o => o.ai && !o.carry && o.ai.mode === 'help' && o.ai.heavy === h)) {
         let best = null, bd = 700;
         for (const o of this.diggers) {
-          if (!o.ai || o.carry || o.stun > 0 || o.ai.mode === 'rob' || (o.ai.mode === 'bank' && bagValue(o) >= 100)) continue;
+          if (!o.ai || o.npc || o.carry || o.stun > 0 || o.ai.mode === 'rob' || (o.ai.mode === 'bank' && bagValue(o) >= 100)) continue;
           const dd = dist(o, h); if (dd < bd) { bd = dd; best = o; }
         }
         if (best) { best.ai.mode = 'help'; best.ai.heavy = h; }
@@ -292,7 +501,7 @@ class Room {
         const [a, b] = h.carriers, k = Math.min(1, dt * 10);
         h.x += ((a.x + b.x) / 2 - h.x) * k; h.y += ((a.y + b.y) / 2 - h.y) * k;
       }
-      if (h.carriers.length === 2 && inMuseumZone(h.x, h.y)) {
+      if (h.carriers.length === 2 && this.inMuseum(h.x, h.y)) {
         const share = Math.round(TYPES[HEAVY].v / h.carriers.length);
         for (const c of h.carriers) { c.banked += share; c.carry = null; }
         this.ev.push(['hbank', h.id, h.carriers.map(c => c.id).join(','), share, h.name]);
@@ -342,7 +551,7 @@ class Room {
     for (let k = 0; k < 10; k++) {
       const a = d.dir + Math.PI + (k % 2 ? 1 : -1) * k * 0.5, r = 34 + k * 4;
       const tx = clampW(d.x + Math.cos(a) * r), ty = clampW(d.y + Math.sin(a) * r);
-      if (!this.inHole(tx, ty, 16) && !inMuseumZone(tx, ty, 30) && !this.buried.some(b => Math.hypot(b.x - tx, b.y - ty) < 30)) { x = tx; y = ty; break; }
+      if (!this.inHole(tx, ty, 16) && !this.inMuseum(tx, ty, 30) && !this.buried.some(b => Math.hypot(b.x - tx, b.y - ty) < 30)) { x = tx; y = ty; break; }
     }
     const b = { id: this.uid++, x, y, ti: 3, name: pick(TYPES[3].names), prog: 0, decoy: true, owner: d.id };
     this.buried.push(b);
@@ -352,7 +561,7 @@ class Room {
     for (let k = 0; k < 10; k++) {
       const a = d.dir + Math.PI + (k % 2 ? 1 : -1) * k * 0.5, r = 30 + k * 4;
       const tx = clampW(d.x + Math.cos(a) * r), ty = clampW(d.y + Math.sin(a) * r);
-      if (!this.inHole(tx, ty, 16) && !inMuseumZone(tx, ty, 30) && (!avoidBuried || !this.buried.some(b => Math.hypot(b.x - tx, b.y - ty) < 30))) return { x: tx, y: ty };
+      if (!this.inHole(tx, ty, 16) && !this.inMuseum(tx, ty, 30) && (!avoidBuried || !this.buried.some(b => Math.hypot(b.x - tx, b.y - ty) < 30))) return { x: tx, y: ty };
     }
     return { x: d.x, y: d.y };
   }
@@ -377,13 +586,13 @@ class Room {
   }
   stinkBomb(d) {
     const hit = [];
-    for (const o of this.diggers) if (o !== d && dist(o, d) < STINK_R && !inMuseumZone(o.x, o.y, 10)) { o.fx.x = POWERS.k.dur; hit.push(o.id); }
+    for (const o of this.diggers) if (o !== d && dist(o, d) < STINK_R && !this.inMuseum(o.x, o.y, 10)) { o.fx.x = POWERS.k.dur; hit.push(o.id); }
     this.ev.push(['stink', d.id, Math.round(d.x), Math.round(d.y), hit.join(',')]);
   }
   bigBonk(d) {
     const hit = [];
     for (const o of [...this.diggers]) {
-      if (o === d || dist(o, d) > SHOCK_R || inMuseumZone(o.x, o.y, 10)) continue;
+      if (o === d || dist(o, d) > SHOCK_R || this.inMuseum(o.x, o.y, 10)) continue;
       if (o.carry) { const h = o.carry; this.hitHeavy(h, d); if (this.heavies.includes(h)) this.hitHeavy(h, d); hit.push(o.id); continue; }
       if (o.immune > 0) continue;
       o.stun = 1; o.immune = 3;
@@ -399,15 +608,15 @@ class Room {
   }
   buy(d, k) {
     const P = POWERS[k]; if (!P || !P.cost) return;
-    if (!inMuseumZone(d.x, d.y, 24) || d.banked < P.cost || (k === 'p' && d.padlock)) return;
+    if (!this.inMuseum(d.x, d.y, 24) || d.banked < P.cost || (k === 'p' && d.padlock)) return;
     d.banked -= P.cost;
     this.ev.push(['buy', d.id, k, P.cost]);
     this.givePower(d, k, 'shop');
   }
   spawnCrate() {
     for (let tries = 0; tries < 40; tries++) {
-      const x = 140 + Math.random() * (WORLD - 280), y = 140 + Math.random() * (WORLD - 280);
-      if (inMuseumZone(x, y, 140) || this.inHole(x, y, 30)) continue;
+      const x = 140 + Math.random() * (WORLD - 280), y = Math.max(140, this.map.top) + Math.random() * (WORLD - 280 - Math.max(0, this.map.top - 140));
+      if (this.inMuseum(x, y, 140) || this.inHole(x, y, 30) || this.underwater(y, 150)) continue;
       const c = { id: this.uid++, x, y };
       this.crates.push(c);
       this.ev.push(['crate', c.id, Math.round(x), Math.round(y)]);
@@ -419,7 +628,7 @@ class Room {
     for (let k = 0; k < 12; k++) {
       const aa = ang + (k % 2 ? 1 : -1) * k * 0.4, r = 34 + k * 3;
       lx = x + Math.cos(aa) * r; ly = y + Math.sin(aa) * r;
-      if (!this.inHole(lx, ly, 14) && !inMuseumZone(lx, ly, 10)) break;
+      if (!this.inHole(lx, ly, 14) && !this.inMuseum(lx, ly, 10)) break;
     }
     lx = clampW(lx); ly = clampW(ly);
     const l = { id: this.uid++, x: lx, y: ly, item, from: fromId, age: 0 };
@@ -427,10 +636,10 @@ class Room {
     this.ev.push(['loose', l.id, Math.round(lx), Math.round(ly), Math.round(x), Math.round(y), item.ti, item.name]);
   }
   bonkVictim(a) {
-    if (inMuseumZone(a.x, a.y, 10)) return null;
+    if (this.inMuseum(a.x, a.y, 10)) return null;
     let best = null, bd = 48;
     for (const o of this.diggers) {
-      if (o === a || inMuseumZone(o.x, o.y, 10)) continue;
+      if (o === a || this.inMuseum(o.x, o.y, 10)) continue;
       const dd = dist(a, o); if (dd > bd) continue;
       let da = Math.atan2(o.y - a.y, o.x - a.x) - a.dir; da = Math.atan2(Math.sin(da), Math.cos(da));
       if (Math.abs(da) < 1.3 || dd < 24) { bd = dd; best = o; }
@@ -479,8 +688,15 @@ class Room {
     if (item) this.dropLoose(item, m.x, m.y, Math.random() * 7, null);
     m.state = 'leave'; m.fleeA = Math.random() * Math.PI * 2;
   }
+  spawnBirdAt(tg, any) {
+    const a = Math.random() * Math.PI * 2;
+    const m = { id: this.uid++, x: tg.x + Math.cos(a) * 520, y: tg.y + Math.sin(a) * 520, alt: 60, target: tg, item: null, any,
+      state: 'hunt', t: 0, ts: 0, dir: a + Math.PI, stun: 0, fleeA: 0, rolled: new Set() };
+    this.magpies.push(m);
+    this.ev.push(['mspawn', m.id, tg.id]);
+  }
   spawnMagpie() {
-    const carriers = this.diggers.filter(d => shiny(d) && !(d.fx.s > 0) && !inMuseumZone(d.x, d.y, 30) && !this.magpies.some(m => m.target === d));
+    const carriers = this.diggers.filter(d => shiny(d) && !(d.fx.s > 0) && !this.inMuseum(d.x, d.y, 30) && !this.magpies.some(m => m.target === d));
     if (!carriers.length) return false;
     let r = Math.random() * carriers.reduce((s, d) => s + bagValue(d), 0), tg = carriers[0];
     for (const d of carriers) { if ((r -= bagValue(d)) < 0) { tg = d; break; } }
@@ -499,12 +715,13 @@ class Room {
       let gx = m.x, gy = m.y, sp = 0;
       if (m.state === 'hunt') {
         const tg = m.target;
-        if (!this.diggers.includes(tg) || !shiny(tg) || tg.fx.s > 0 || inMuseumZone(tg.x, tg.y, 20) || m.t > 14) { m.state = 'leave'; m.fleeA = Math.atan2(m.y - tg.y, m.x - tg.x); }
+        if (!this.diggers.includes(tg) || !(m.any ? true : shiny(tg)) || tg.fx.s > 0 || this.inMuseum(tg.x, tg.y, 20) || m.t > 14) { m.state = 'leave'; m.fleeA = Math.atan2(m.y - tg.y, m.x - tg.x); }
         else {
           gx = tg.x; gy = tg.y; sp = 175;
           const dd = Math.hypot(gx - m.x, gy - m.y); m.alt = Math.min(60, dd * 0.3);
           if (dd < 16) {
-            let bi = -1; tg.bag.forEach((b, i) => { if (TYPES[b.ti].v >= 40 && (bi < 0 || TYPES[b.ti].v > TYPES[tg.bag[bi].ti].v)) bi = i; });
+            let bi = -1; tg.bag.forEach((b, i) => { if ((m.any || TYPES[b.ti].v >= 40) && (bi < 0 || TYPES[b.ti].v > TYPES[tg.bag[bi].ti].v)) bi = i; });
+            if (bi < 0) { tg.stun = Math.max(tg.stun, 0.5); this.ev.push(['peck', m.id, tg.id]); m.state = 'leave'; m.fleeA = Math.random() * 7; continue; }
             m.item = tg.bag.splice(bi, 1)[0]; m.state = 'flee'; m.ts = 0;
             m.fleeA = Math.atan2(m.y - tg.y, m.x - tg.x) + (Math.random() - 0.5);
             this.ev.push(['steal', m.id, tg.id, m.item.ti, m.item.name]);
@@ -531,7 +748,7 @@ class Room {
     d.moving = mag > 0.05 && d.stun <= 0;
     if (!d.moving) return;
     if (mag > 1) { mx /= mag; my /= mag; }
-    const speed = base * (1 - Math.min(0.45, d.bag.length * 0.05)) * (d.fx.w > 0 ? 1.3 : 1) * (d.carry ? (d.carry.carriers.length === 2 ? 0.7 : 0) : 1);
+    const speed = base * (1 - Math.min(0.45, d.bag.length * 0.05)) * (d.fx.w > 0 ? 1.3 : 1) * (d.carry ? (d.carry.carriers.length === 2 ? 0.7 : 0) : 1) * (this.underwater(d.y) ? 0.5 : 1);
     d.x += mx * speed * dt; d.y += my * speed * dt;
     if (!(d.fx.w > 0)) for (let pass = 0; pass < 2; pass++) for (const h of this.holes) pushOut(d, h.x, h.y, h.r + 11);
     d.x = clampW(d.x); d.y = clampW(d.y);
@@ -541,6 +758,7 @@ class Room {
     const ai = b.ai;
     ai.robCd -= dt; ai.think -= dt;
     if (b.stun > 0) { if (ai.mode === 'dig' || ai.mode === 'help') ai.mode = 'hunt'; b.moving = false; return; }
+    if (b.npc) return this.clubThink(b, dt);
     if (b.power === 'q' && this.diggers.some(o => o !== b && dist(o, b) < SHOCK_R - 15 && (o.bag.length || o.carry))) this.usePower(b);
     if (b.power === 'k' && this.diggers.filter(o => o !== b && dist(o, b) < STINK_R).length >= 2) this.usePower(b);
     if (b.carry) { // hauling a heavy find: head for the Museum, give up if nobody helps
@@ -549,7 +767,7 @@ class Room {
       if (h.carriers.length < 2 && ai.holdT > 15) { this.unlift(b); ai.mode = 'hunt'; ai.heavyCd = 15; return; }
       if (!this.heavies.includes(h)) { b.carry = null; ai.mode = 'hunt'; return; }
       if (h.carriers.length === 2) ai.holdT = 0;
-      const ang = Math.atan2(MUSEUM.y - b.y, MUSEUM.x - b.x);
+      const ang = Math.atan2(this.M.y - b.y, this.M.x - b.x);
       this.moveDigger(b, Math.cos(ang), Math.sin(ang), dt, 150);
       return;
     }
@@ -563,7 +781,7 @@ class Room {
       ai.think = 0.35 + Math.random() * 0.4;
       if (ai.mode !== 'rob' && ai.mode !== 'bank' && ai.robCd <= 0 && bv < 60) {
         let best = null, bd = 220;
-        for (const o of this.diggers) { if (o === b || (o.immune > 0 && !o.carry) || (bagValue(o) < 20 && !o.carry) || inMuseumZone(o.x, o.y, 20)) continue; const dd = dist(o, b); if (dd < bd) { bd = dd; best = o; } }
+        for (const o of this.diggers) { if (o === b || (o.immune > 0 && !o.carry) || (bagValue(o) < 20 && !o.carry) || this.inMuseum(o.x, o.y, 20)) continue; const dd = dist(o, b); if (dd < bd) { bd = dd; best = o; } }
         if (best && Math.random() < ai.aggro) { ai.mode = 'rob'; ai.victim = best; ai.chase = 3 + Math.random() * 2; }
         else ai.robCd = 1.5;
       }
@@ -582,11 +800,11 @@ class Room {
     let gx = null, gy = null;
     if (ai.mode === 'bank') {
       if (!b.bag.length) { ai.mode = 'hunt'; ai.bankAt = 40 + Math.random() * 110; }
-      else { gx = MUSEUM.x; gy = MUSEUM.y; }
+      else { gx = this.M.x; gy = this.M.y; }
     }
     if (ai.mode === 'rob') {
       const v = ai.victim; ai.chase -= dt;
-      if (ai.chase <= 0 || !v || !this.diggers.includes(v) || (!v.carry && (v.immune > 0 || !v.bag.length)) || inMuseumZone(v.x, v.y, 10)) { ai.mode = 'hunt'; ai.robCd = 5 + Math.random() * 5; }
+      if (ai.chase <= 0 || !v || !this.diggers.includes(v) || (!v.carry && (v.immune > 0 || !v.bag.length)) || this.inMuseum(v.x, v.y, 10)) { ai.mode = 'hunt'; ai.robCd = 5 + Math.random() * 5; }
       else {
         gx = v.x; gy = v.y;
         if (dist(b, v) < 36) { b.dir = Math.atan2(v.y - b.y, v.x - b.x); const smashing = !!v.carry; if (this.bonk(b) && !smashing) { ai.mode = 'hunt'; ai.robCd = 6 + Math.random() * 5; } }
@@ -606,12 +824,12 @@ class Room {
       else { gx = ai.loot.x; gy = ai.loot.y; }
     }
     if (ai.mode === 'hunt') {
-      if (!ai.item || !this.buried.includes(ai.item)) {
+      if (!ai.item || !this.buried.includes(ai.item) || this.underwater(ai.item.y, 20)) {
         // bots only "hear" treasure within their detector range, like players
-        const sense = b.fx.x > 0 ? 0 : BOT_SENSE * (b.fx.c > 0 ? 2 : 1);
+        const sense = b.fx.x > 0 ? 0 : BOT_SENSE * (b.fx.c > 0 ? 2 : 1) * (this.event && this.event.kind === 'fog' ? 0.5 : 1);
         ai.item = null; let bd = sense;
         for (const it of this.buried) {
-          if (it.owner === b.id) continue;
+          if (it.owner === b.id || this.underwater(it.y, 20)) continue;
           const d0 = dist(it, b); if (d0 > sense) continue;
           if (this.diggers.some(o => o !== b && o.ai && o.ai.item === it)) continue;
           const dd = d0 + Math.random() * 80;
@@ -621,16 +839,17 @@ class Room {
       if (ai.item) { ai.wander = null; gx = ai.item.x; gy = ai.item.y; if (dist(b, ai.item) < 30) { ai.mode = 'dig'; ai.digT = 0.5; } }
       else {
         // nothing in range: wander the field until something beeps
-        if (!ai.wander || Math.hypot(ai.wander.x - b.x, ai.wander.y - b.y) < 40) {
+        if (!ai.wander || Math.hypot(ai.wander.x - b.x, ai.wander.y - b.y) < 40 || this.underwater(ai.wander.y, 60)) {
           let wx, wy, n = 0;
-          do { wx = 120 + Math.random() * (WORLD - 240); wy = 120 + Math.random() * (WORLD - 240); } while (inMuseumZone(wx, wy, 120) && ++n < 20);
+          const wTop = Math.max(120, this.map.top), wBot = Math.min(WORLD - 120, this.sea - 90);
+          do { wx = 120 + Math.random() * (WORLD - 240); wy = wTop + Math.random() * Math.max(10, wBot - wTop); } while (this.inMuseum(wx, wy, 120) && ++n < 20);
           ai.wander = { x: wx, y: wy };
         }
         gx = ai.wander.x; gy = ai.wander.y;
       }
     }
     if (ai.mode === 'dig') {
-      if (!ai.item || !this.buried.includes(ai.item)) ai.mode = 'hunt';
+      if (!ai.item || !this.buried.includes(ai.item) || this.underwater(ai.item.y, 4)) ai.mode = 'hunt';
       else {
         turnTo(b, Math.atan2(ai.item.y - b.y, ai.item.x - b.x), dt);
         if (dist(b, ai.item) > 40) ai.mode = 'hunt';
@@ -639,6 +858,7 @@ class Room {
       }
     }
     if (gx === null) { b.moving = false; return; }
+    if (this.underwater(b.y, 15) && !b.carry) { gx = b.x; gy = this.sea - 120; } // get out of the sea
     let ang = Math.atan2(gy - b.y, gx - b.x);
     if (ai.detour > 0) { ai.detour -= dt; ang += ai.detourA; }
     ai.stuckT += dt;
@@ -683,6 +903,8 @@ class Room {
     this.t += dt; this.timeLeft -= dt;
     if (this.timeLeft <= 0) { this.timeLeft = 0; this.flush(); this.end(); return; }
     this.updateMagpies(dt);
+    this.updateTide(dt);
+    this.updateEvent(dt);
     if ((this.crateT -= dt) <= 0) { this.crateT = CRATE_EVERY; if (!this.crates.length) this.spawnCrate(); }
     for (const d of this.diggers) {
       for (const k in d.fx) if ((d.fx[k] -= dt) <= 0) delete d.fx[k];
@@ -691,7 +913,7 @@ class Room {
       d.stun = Math.max(0, d.stun - dt); d.immune = Math.max(0, d.immune - dt);
       d.bonkCd = Math.max(0, d.bonkCd - dt); d.swing = Math.max(0, d.swing - dt);
       if (d.isBot) this.botThink(d, dt);
-      if (d.bag.length && inMuseumZone(d.x, d.y)) {
+      if (d.bag.length && this.inMuseum(d.x, d.y)) {
         const v = bagValue(d); d.banked += v; d.bag = [];
         this.ev.push(['bank', d.id, v]);
         if (d.isBot && !d.padlock && d.banked >= 200 && Math.random() < 0.3) this.buy(d, 'p');
@@ -718,7 +940,7 @@ class Room {
   }
   flush() {
     const s = {
-      t: 's', tl: Math.round(this.timeLeft * 10) / 10,
+      t: 's', tl: Math.round(this.timeLeft * 10) / 10, sea: this.map.tide ? Math.round(this.sea) : undefined,
       d: this.diggers.map(d => [d.id, Math.round(d.x), Math.round(d.y), Math.round(d.dir * 100) / 100, d.stun > 0 ? 1 : 0, d.immune > 0 ? 1 : 0,
         d.bag.map(b => b.ti).join(''), d.banked, d.moving ? 1 : 0, d.power || '',
         Object.keys(d.fx).map(k => k + Math.ceil(d.fx[k])).join('') + (d.padlock ? 'p' : '') + (d.lucky > 0 ? 'l' + d.lucky : '') + (d.tired > 0 ? 'z' + Math.ceil(d.tired) : '')]),
@@ -914,6 +1136,7 @@ function onConnection(ws) {
     if (!room) return;
     if (msg.t === 'start') { if (me === room.host && room.state !== 'play') room.start(); return; }
     if (msg.t === 'look') { room.setLook(me, msg.look); return; }
+    if (msg.t === 'map') { if (me === room.host) room.setMap(String(msg.id)); return; }
     room.onInput(me, msg);
   });
   ws.on('close', () => {
