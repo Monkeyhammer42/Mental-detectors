@@ -37,7 +37,7 @@ canvas{display:block;width:100%;height:100%}
   font-size:12px;background:#2c7fa0;box-shadow:0 0 0 5px rgba(143,230,255,.35);animation:glow 1.2s ease-in-out infinite alternate;line-height:1.05;padding:0}
 #powBtn small{display:block;font:800 9px var(--body);letter-spacing:.08em;opacity:.85}
 @keyframes glow{to{box-shadow:0 0 0 9px rgba(143,230,255,.15)}}
-#shop{position:absolute;left:calc(10px + env(safe-area-inset-left,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));
+#shop{position:absolute;left:calc(10px + env(safe-area-inset-left,0px));top:calc(82px + env(safe-area-inset-top,0px));
   background:rgba(244,236,212,.92);color:var(--ink);border-radius:10px;padding:4px;display:flex;align-items:center;gap:4px;box-shadow:0 3px 10px rgba(0,0,0,.3)}
 #shop h3{margin:0 2px;font:400 11px var(--display);color:#2f4a1c;display:flex;flex-direction:column;line-height:1.1}
 #shop h3 small{font:800 10px var(--body);color:#8a4a1c}
@@ -45,14 +45,16 @@ canvas{display:block;width:100%;height:100%}
 #shop button b{font:400 11px var(--display);color:#8a4a1c;white-space:nowrap}
 #shop button span{display:none}
 #shop button:disabled{opacity:.45}
-#game.left #shop{left:auto;right:calc(10px + env(safe-area-inset-right,0px))}
+#game:has(#shop:not([hidden])) #fx{top:calc(134px + env(safe-area-inset-top,0px))}
 .topright{position:absolute;top:calc(10px + env(safe-area-inset-top,0px));right:calc(10px + env(safe-area-inset-right,0px));
   display:flex;flex-direction:column;align-items:flex-end;gap:6px}
 #mute{width:44px;height:36px;border-radius:10px;border:0;background:var(--hud);color:var(--paper);font:800 12px var(--body)}
-#board{background:var(--hud);border-radius:12px;padding:6px 10px;margin:0;list-style:none;font-size:12px;min-width:112px;pointer-events:none}
-#board li{display:flex;justify-content:space-between;gap:10px;font-variant-numeric:tabular-nums;line-height:1.55}
+#board{background:var(--hud);border-radius:10px;padding:4px 8px;margin:0;list-style:none;font-size:11px;min-width:96px;cursor:pointer}
+#board:empty{display:none}
+#board li.mini{font-weight:800;color:var(--gold)}
+#board li{display:flex;justify-content:space-between;gap:8px;font-variant-numeric:tabular-nums;line-height:1.45}
 #board li.me{color:var(--gold);font-weight:800}
-#board i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
+#board i{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px}
 .btn{position:absolute;border-radius:50%;border:4px solid rgba(0,0,0,.25);color:var(--paper);font:400 20px var(--display);letter-spacing:.04em;
   transition:transform .06s,opacity .15s,background .15s}
 #digBtn{right:calc(20px + env(safe-area-inset-right,0px));bottom:calc(26px + env(safe-area-inset-bottom,0px));width:104px;height:104px;background:#6b5a45;opacity:.55}
@@ -69,8 +71,22 @@ canvas{display:block;width:100%;height:100%}
 #game.split.swap #digBtn{right:auto;left:calc(20px + env(safe-area-inset-left,0px))}
 #game.split.swap #bonkBtn{left:auto;right:calc(20px + env(safe-area-inset-right,0px))}
 #game.split.swap #powBtn{right:auto;left:calc(30px + env(safe-area-inset-left,0px))}
-#game.split #shop{left:50%;right:auto;transform:translateX(-50%);bottom:calc(140px + env(safe-area-inset-bottom,0px))}
-#layoutBtn{width:44px;height:36px;border-radius:10px;border:0;background:var(--hud);color:var(--paper);font:800 16px var(--body)}
+#setBtn{width:40px;height:40px;border-radius:12px;border:0;background:var(--hud);color:var(--paper);display:grid;place-items:center;padding:0}
+#setBtn svg{width:22px;height:22px}
+.topright{z-index:4}
+body:not(.playing) #board{display:none}
+#settings{z-index:6}
+.panel .seg{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px}
+.panel .seg button{margin:0;padding:9px 6px;font:800 13px var(--body);letter-spacing:0;background:transparent;color:#3f5a2a;border:2px solid #3f5a2a;border-radius:10px}
+.panel .seg button.on{background:#3f5a2a;color:var(--paper)}
+.panel .seg.wide{grid-template-columns:1fr}
+.panel input[type=range]{padding:0;border:0;background:none;accent-color:#3f5a2a;margin:2px 0 14px}
+.setHead{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.setHead h2{margin:0}
+.setRoom{display:flex;justify-content:space-between;align-items:center;background:#e6dcc0;border-radius:12px;padding:8px 12px;margin-bottom:8px}
+.setRoom b{font:400 26px var(--display);letter-spacing:.12em;color:#c45a2a}
+.panel button.danger{background:#a8352b}
+.panel .tiny{font-size:11px;color:#6d5f38;text-align:center;margin:10px 0 0}
 .btn.hit{transform:scale(.9)}
 #digBtn.off,#bonkBtn.off{opacity:.3}
 #digBtn.shake{animation:shake .25s}
@@ -178,8 +194,7 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
   <div id="fx" aria-live="polite"></div>
   <div id="banner" hidden aria-live="assertive"><b id="bannerT"></b><span id="bannerS"></span></div>
   <div class="topright">
-    <button id="mute" aria-label="Toggle sound">SND</button>
-    <button id="layoutBtn" aria-label="Move the buttons" title="Move the buttons">&#8644;</button>
+    <button id="setBtn" aria-label="Settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19.4 13a7.5 7.5 0 0 0 0-2l2-1.6-2-3.4-2.4 1a7.4 7.4 0 0 0-1.7-1L15 3.5h-4L10.7 6a7.4 7.4 0 0 0-1.7 1l-2.4-1-2 3.4 2 1.6a7.5 7.5 0 0 0 0 2l-2 1.6 2 3.4 2.4-1a7.4 7.4 0 0 0 1.7 1l.3 2.5h4l.3-2.5a7.4 7.4 0 0 0 1.7-1l2.4 1 2-3.4zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z" transform="translate(-1 0)"/></svg></button>
     <ol id="board" aria-label="Banked totals"></ol>
   </div>
   <button id="bonkBtn" class="btn" aria-label="Bonk">BONK</button>
@@ -221,6 +236,30 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
       <button id="joinBtn" class="alt">Join game</button>
       <p class="err" id="homeErr"></p>
       <button class="ghost wardOpen">Wardrobe</button>
+    </div>
+  </div>
+
+  <div id="settings" class="overlay" hidden>
+    <div class="panel">
+      <div class="setHead"><h2>Settings</h2></div>
+      <div id="setGame" hidden>
+        <label>Game code</label>
+        <div class="setRoom"><b id="setCode">----</b><button id="setShare" class="ghost" style="width:auto;margin:0;padding:8px 12px">Copy invite</button></div>
+        <p class="note" id="setShareNote" style="margin:0 0 8px"></p>
+      </div>
+      <label>Sound</label>
+      <div class="seg"><button data-snd="1">On</button><button data-snd="0">Off</button></div>
+      <label for="volIn">Volume</label>
+      <input id="volIn" type="range" min="0" max="100" step="5">
+      <div id="vibWrap"><label>Vibrate</label>
+      <div class="seg"><button data-vib="1">On</button><button data-vib="0">Off</button></div></div>
+      <label>Dig &amp; bonk buttons</label>
+      <div class="seg" id="layoutSeg"></div>
+      <label>Scoreboard</label>
+      <div class="seg"><button data-board="full">Full</button><button data-board="mini">Just me</button></div>
+      <button id="setDone" class="alt">Done</button>
+      <button id="setLeave" class="danger" hidden>Leave game</button>
+      <p class="tiny">Tap the scoreboard in a game to shrink it.</p>
     </div>
   </div>
 
@@ -607,13 +646,15 @@ function drawSea(cx, cy, viewW, viewH){
 
 // ---------- audio ----------
 let ac = null;
+let masterGain = null, volume = .8;
 function unlockAudio(){ try { ac = ac || new (window.AudioContext || window.webkitAudioContext)(); ac.resume(); } catch (_) {} }
+const out = () => { if (!masterGain){ masterGain = ac.createGain(); masterGain.connect(ac.destination); } masterGain.gain.value = volume; return masterGain; };
 function beep(freq, dur, type = 'sine', vol = .08){
   if (!ac || muted || vol < .004) return;
   const o = ac.createOscillator(), g = ac.createGain();
   o.type = type; o.frequency.value = freq;
   g.gain.setValueAtTime(vol, ac.currentTime); g.gain.exponentialRampToValueAtTime(.0001, ac.currentTime + dur);
-  o.connect(g).connect(ac.destination); o.start(); o.stop(ac.currentTime + dur);
+  o.connect(g).connect(out()); o.start(); o.stop(ac.currentTime + dur);
 }
 const near = (x, y) => me ? Math.max(0, 1 - Math.hypot(x-me.x, y-me.y)/500) : 0;
 const chime = (v = 1) => [660, 880, 1320].forEach((f,i) => setTimeout(() => beep(f, .25, 'triangle', .1*v), i*90));
@@ -627,7 +668,7 @@ function noise(dur, freq, q, vol, type = 'bandpass'){
   const src = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
   src.buffer = noiseBuf; f.type = type; f.frequency.value = freq; f.Q.value = q;
   g.gain.setValueAtTime(vol, ac.currentTime); g.gain.exponentialRampToValueAtTime(.0001, ac.currentTime + dur);
-  src.connect(f).connect(g).connect(ac.destination); src.start(); src.stop(ac.currentTime + dur);
+  src.connect(f).connect(g).connect(out()); src.start(); src.stop(ac.currentTime + dur);
 }
 // magpie "chak-chak-chak" rattle
 const caw = (v = 1) => {
@@ -635,7 +676,7 @@ const caw = (v = 1) => {
     if (!ac || muted || v < .02) return;
     for (const [d, f] of [[0, 330], [.28, 300], [.45, 340]]){ const o = ac.createOscillator(), g = ac.createGain(), at = ac.currentTime + d;
       o.type = 'sine'; o.frequency.setValueAtTime(f, at); o.frequency.linearRampToValueAtTime(f*.85, at + .2); g.gain.setValueAtTime(.0001, at); g.gain.linearRampToValueAtTime(.07*v, at + .05); g.gain.exponentialRampToValueAtTime(.0001, at + .22);
-      o.connect(g).connect(ac.destination); o.start(at); o.stop(at + .23); }
+      o.connect(g).connect(out()); o.start(at); o.stop(at + .23); }
     return;
   }
   if (MAP === 'mountain'){ // crow: harsh caws
@@ -646,7 +687,7 @@ const caw = (v = 1) => {
     if (!ac || muted || v < .02) return;
     for (const [d, f0] of [[0, 1500], [.22, 1350]]){ const o = ac.createOscillator(), g = ac.createGain(), at = ac.currentTime + d;
       o.type = 'sawtooth'; o.frequency.setValueAtTime(f0, at); o.frequency.exponentialRampToValueAtTime(700, at + .18);
-      g.gain.setValueAtTime(.05*v, at); g.gain.exponentialRampToValueAtTime(.0001, at + .2); o.connect(g).connect(ac.destination); o.start(at); o.stop(at + .21); }
+      g.gain.setValueAtTime(.05*v, at); g.gain.exponentialRampToValueAtTime(.0001, at + .2); o.connect(g).connect(out()); o.start(at); o.stop(at + .21); }
     return;
   }
   for (let i = 0; i < 5; i++) setTimeout(() => { noise(.06, 2400 + Math.random()*500, 6, .5*v); beep(1250 + Math.random()*150, .04, 'square', .03*v); }, i*75);
@@ -654,7 +695,7 @@ const caw = (v = 1) => {
 const flap = (v = 1) => noise(.09, 420, 1.2, .35*v, 'lowpass');
 const bark = (v = 1) => { if (!ac || muted || v < .02) return; for (const d of [0, .16]){ const o = ac.createOscillator(), g = ac.createGain(), at = ac.currentTime + d;
   o.type = 'square'; o.frequency.setValueAtTime(520, at); o.frequency.exponentialRampToValueAtTime(260, at + .09); g.gain.setValueAtTime(.06*v, at); g.gain.exponentialRampToValueAtTime(.0001, at + .11);
-  o.connect(g).connect(ac.destination); o.start(at); o.stop(at + .12); } noise(.12, 900, 1, .4*v); };
+  o.connect(g).connect(out()); o.start(at); o.stop(at + .12); } noise(.12, 900, 1, .4*v); };
 const whistle = (v = 1) => [0, 380].forEach(ms => setTimeout(() => { beep(2400, .28, 'sine', .07*v); beep(2470, .28, 'sine', .04*v); }, ms));
 const jingle = (v = 1) => [784, 659, 784, 659, 523, 587, 659, 784].forEach((f, i) => setTimeout(() => beep(f, .16, 'triangle', .07*v), i*170));
 const rumble = (v = 1) => { noise(2.6, 90, .5, 1.6*v, 'lowpass'); beep(38, 2.2, 'sawtooth', .07*v); };
@@ -941,7 +982,7 @@ $('shareBtn').addEventListener('click', async () => {
   catch (_) { $('shareNote').textContent = url; }
 });
 document.querySelectorAll('.mapPick button').forEach(b => b.addEventListener('click', () => send({t: 'map', id: b.dataset.map})));
-$('mute').addEventListener('click', () => { muted = !muted; $('mute').textContent = muted ? 'OFF' : 'SND'; });
+
 
 function renderLobby(players){
   $('lobbyCode').textContent = roomCode;
@@ -976,8 +1017,8 @@ function connect(name, code){
     if (!opened) $('homeErr').textContent = 'Couldn’t reach the server. Try again in a moment.';
     else if (!$('homeErr').dataset.keep) $('homeErr').textContent = 'Connection lost. Rejoin with the same code.';
     delete $('homeErr').dataset.keep;
-    if (roomCode) $('codeIn').value = roomCode;
-    inGame = false; ws = null; show('home');
+    if (roomCode) $('codeIn').value = roomCode; else delete $('homeErr').dataset.keep;
+    inGame = false; ws = null; document.body.classList.remove('playing'); show('home');
   };
 }
 function handle(m){
@@ -1014,7 +1055,7 @@ function startRound(m){
   for (const d of m.diggers) addDigger(d);
   me = diggers.get(myId);
   rings = []; floats = []; pops = []; dirt = [];
-  update.lastTl = undefined; inGame = true; show(null); chime();
+  update.lastTl = undefined; inGame = true; show(null); chime(); document.body.classList.add('playing');
 }
 function addDigger(d){
   diggers.set(d.id, {id: d.id, name: d.name, col: d.col, bot: d.bot, npc: d.npc || 0, look: d.look || {}, lvl: d.lvl || 0, x: MUSEUM.x, y: MUSEUM.y + 140, tx: null, ty: null, dir: 0, tdir: 0,
@@ -1107,7 +1148,7 @@ function applyEvent(e){
     pops.push({x: b.x, y: b.y, ti: decoy ? 0 : b.ti, t: 0});
     if (decoy || b.ti === BOX) return; // 'decoyed' / 'power' events say what happened
     const d = diggers.get(by);
-    if (by === myId){ floatAt(me.x, me.y - 40, `${b.name}  +${TYPES[b.ti].v}`, TYPES[b.ti].ring); if (b.ti === 0) beep(160, .2, 'square', .06); else chime(); }
+    if (by === myId){ buzz(25); floatAt(me.x, me.y - 40, `${b.name}  +${TYPES[b.ti].v}`, TYPES[b.ti].ring); if (b.ti === 0) beep(160, .2, 'square', .06); else chime(); }
     else if (d && (b.ti === 3 || near(b.x, b.y) > .3)) floatAt(b.x, b.y - 40, `${d.name}: ${b.name}`, TYPES[b.ti].ring, {small: true});
   } else if (k === 'hshift'){ holes.shift(); }
   else if (k === 'hclear'){ holes = holes.filter(h => h.y <= e[1]); }
@@ -1138,7 +1179,7 @@ function applyEvent(e){
       else if (aid === myId){ floatAt(me.x, me.y - 46, `Sticky glove! Stole ${name}`, '#ff9f43'); chime(); }
       return;
     }
-    thwack(Math.max(near(a.x, a.y), near(v.x, v.y), aid === myId || vid === myId ? 1 : 0));
+    thwack(Math.max(near(a.x, a.y), near(v.x, v.y), aid === myId || vid === myId ? 1 : 0)); if (vid === myId) buzz([70, 40, 70]); else if (aid === myId) buzz(30);
     if (vid === myId) floatAt(v.x, v.y - 40, ti >= 0 ? `${a.name} got you! -${name}` : `${a.name} bonked you`, '#ff8a7a');
     else if (aid === myId) floatAt(v.x, v.y - 40, ti >= 0 ? `${v.name} dropped ${name}` : 'BONK', ti >= 0 ? TYPES[ti].ring : '#ffffff');
     else if (ti >= 0 && near(v.x, v.y) > .2) floatAt(v.x, v.y - 40, `${v.name} dropped ${name}`, TYPES[ti].ring, {small: true});
@@ -1149,6 +1190,7 @@ function applyEvent(e){
     if (e[2] === myId){ floatAt(me.x, me.y - 50, `${bird()} incoming!`, '#ffffff'); caw(); }
   } else if (k === 'steal'){
     const [, , vid, ti, name, dog] = e, v = diggers.get(vid); if (!v) return;
+    if (vid === myId) buzz([50, 30, 50]);
     if (dog){ bark(vid === myId ? 1 : near(v.x, v.y));
       if (vid === myId) floatAt(v.x, v.y - 40, `A dog ran off with your ${name}! Bonk it`, '#ff8a7a');
       else if (near(v.x, v.y) > .2) floatAt(v.x, v.y - 40, `A dog robbed ${v.name}`, '#f4ecd4', {small: true});
@@ -1205,7 +1247,7 @@ function applyEvent(e){
     const x = tr ? tr.x : v ? v.x : 0, y = tr ? tr.y : v ? v.y : 0, vol = vid === myId || owner === myId ? 1 : near(x, y);
     // slide whistle down
     if (ac && !muted && vol > .01){ const o = ac.createOscillator(), g = ac.createGain(); o.type = 'sine'; o.frequency.setValueAtTime(1400, ac.currentTime); o.frequency.exponentialRampToValueAtTime(260, ac.currentTime + .45);
-      g.gain.setValueAtTime(.09*vol, ac.currentTime); g.gain.exponentialRampToValueAtTime(.0001, ac.currentTime + .5); o.connect(g).connect(ac.destination); o.start(); o.stop(ac.currentTime + .5); }
+      g.gain.setValueAtTime(.09*vol, ac.currentTime); g.gain.exponentialRampToValueAtTime(.0001, ac.currentTime + .5); o.connect(g).connect(out()); o.start(); o.stop(ac.currentTime + .5); }
     if (v && (vid === myId || owner === myId || near(x, y) > .25))
       floatAt(x, y - 40, vid === myId ? `You slipped on a banana!${ti >= 0 ? ' -' + name : ''}` : owner === myId ? `${v.name} slipped on your banana!` : `${v.name} slipped!`, '#ffe14d', {small: vid !== myId && owner !== myId});
   } else if (k === 'stink'){
@@ -1271,7 +1313,7 @@ function applyEvent(e){
   else if (k === 'leave'){ diggers.delete(e[1]); }
 }
 function endRound(m){
-  inGame = false;
+  inGame = false; document.body.classList.remove('playing');
   const lost = me ? bagValue(me) : 0;
   const [wid, wname] = m.rank[0] || [];
   $('endTitle').textContent = !m.rank.length || m.rank[0][3] === 0 ? 'Nobody banked a thing' : wid === myId ? 'You win!' : `${wname} wins`;
@@ -1346,10 +1388,42 @@ const LAYOUTS = [['', 'Buttons: bottom right'], ['high', 'Buttons: right, higher
 let layout = 0; try { layout = Math.max(0, LAYOUTS.findIndex(l => l[0] === (localStorage.getItem('fk-layout') || ''))); } catch (_) {}
 function applyLayout(){ $('game').classList.remove('left', 'high', 'split', 'swap'); for (const c of LAYOUTS[layout][0].split(' ').filter(Boolean)) $('game').classList.add(c); }
 applyLayout();
-$('layoutBtn').addEventListener('click', () => {
-  layout = (layout + 1) % LAYOUTS.length; applyLayout();
-  try { localStorage.setItem('fk-layout', LAYOUTS[layout][0]); } catch (_) {}
-  if (me) floatAt(me.x, me.y - 60, LAYOUTS[layout][1], '#ffffff', {small: true});
+// ---------- settings ----------
+const SHORT = ['Right', 'Right, higher', 'Left', 'Left, higher', 'Dig right, bonk left', 'Dig left, bonk right'];
+const pref = (k, d) => { try { const v = localStorage.getItem(k); return v === null ? d : v; } catch (_) { return d; } };
+const setPref = (k, v) => { try { localStorage.setItem(k, v); } catch (_) {} };
+muted = pref('fk-mute', '0') === '1'; volume = +pref('fk-vol', '80')/100;
+let vibOn = pref('fk-vib', '1') === '1', boardMini = pref('fk-board', 'full') === 'mini';
+const buzz = p => { if (vibOn && navigator.vibrate) try { navigator.vibrate(p); } catch (_) {} };
+$('layoutSeg').innerHTML = SHORT.map((n, i) => `<button data-lay="${i}">${n}</button>`).join('');
+function renderSettings(){
+  document.querySelectorAll('[data-snd]').forEach(b => b.classList.toggle('on', (b.dataset.snd === '0') === muted));
+  document.querySelectorAll('[data-vib]').forEach(b => b.classList.toggle('on', (b.dataset.vib === '1') === vibOn));
+  document.querySelectorAll('[data-lay]').forEach(b => b.classList.toggle('on', +b.dataset.lay === layout));
+  document.querySelectorAll('[data-board]').forEach(b => b.classList.toggle('on', (b.dataset.board === 'mini') === boardMini));
+  $('volIn').value = Math.round(volume*100); $('vibWrap').hidden = !navigator.vibrate;
+  $('setGame').hidden = !roomCode || !ws; $('setLeave').hidden = !ws; $('setCode').textContent = roomCode || '----';
+}
+function openSettings(){ releaseAll(); $('setShareNote').textContent = ''; renderSettings(); $('settings').hidden = false; }
+$('setBtn').addEventListener('click', () => { unlockAudio(); $('settings').hidden ? openSettings() : ($('settings').hidden = true); });
+$('setDone').addEventListener('click', () => { $('settings').hidden = true; });
+$('settings').addEventListener('click', e => { if (e.target === $('settings')) $('settings').hidden = true; }); // tap outside to close
+document.querySelectorAll('[data-snd]').forEach(b => b.addEventListener('click', () => { muted = b.dataset.snd === '0'; setPref('fk-mute', muted ? '1' : '0'); renderSettings(); if (!muted) beep(660, .12, 'triangle', .08); }));
+document.querySelectorAll('[data-vib]').forEach(b => b.addEventListener('click', () => { vibOn = b.dataset.vib === '1'; setPref('fk-vib', vibOn ? '1' : '0'); renderSettings(); buzz(40); }));
+document.querySelectorAll('[data-board]').forEach(b => b.addEventListener('click', () => { boardMini = b.dataset.board === 'mini'; setPref('fk-board', boardMini ? 'mini' : 'full'); renderSettings(); update.boardT = 0; }));
+$('volIn').addEventListener('input', () => { volume = $('volIn').value/100; setPref('fk-vol', $('volIn').value); if (masterGain) masterGain.gain.value = volume; });
+$('volIn').addEventListener('change', () => beep(660, .12, 'triangle', .1));
+$('layoutSeg').addEventListener('click', e => { const b = e.target.closest('[data-lay]'); if (!b) return; layout = +b.dataset.lay; applyLayout(); setPref('fk-layout', LAYOUTS[layout][0]); renderSettings(); });
+$('board').addEventListener('click', () => { boardMini = !boardMini; setPref('fk-board', boardMini ? 'mini' : 'full'); update.boardT = 0; });
+$('setShare').addEventListener('click', async () => {
+  const url = `${location.origin}${location.pathname}?room=${roomCode}`;
+  try { await navigator.clipboard.writeText(url); $('setShareNote').textContent = 'Invite link copied.'; } catch (_) { $('setShareNote').textContent = url; }
+});
+$('setLeave').addEventListener('click', () => {
+  if (!confirm(inGame ? 'Leave this game? Anything in your bag is lost.' : 'Leave this game?')) return;
+  $('settings').hidden = true; $('homeErr').textContent = ''; $('homeErr').dataset.keep = '1';
+  roomCode = null; history.replaceState(null, '', location.pathname); $('codeIn').value = ''; $('joinBtn').textContent = 'Join game';
+  if (ws) ws.close();
 });
 const press = el => { el.classList.remove('hit'); void el.offsetWidth; el.classList.add('hit'); };
 digBtn.addEventListener('pointerdown', e => { e.preventDefault(); playerDig(); });
@@ -1556,7 +1630,8 @@ function update(dt){
   update.lastTl = timeLeft;
   if ((update.boardT = (update.boardT || 0) - dt) <= 0){
     update.boardT = .3;
-    const html = [...diggers.values()].filter(d => !d.npc).sort((a, b) => b.banked - a.banked)
+    const ranked = [...diggers.values()].filter(d => !d.npc).sort((a, b) => b.banked - a.banked), pos = ranked.indexOf(me) + 1;
+    const html = boardMini ? `<li class="mini"><span>${pos}${['th','st','nd','rd'][(pos % 100 > 10 && pos % 100 < 14) || pos % 10 > 3 ? 0 : pos % 10]} of ${ranked.length}</span><span>${me.banked}</span></li>` : ranked
       .map(d => `<li class="${d === me ? 'me' : ''}"><span><i style="background:${d.col}"></i>${esc(d.name)}${d.lvl ? ' <small style="opacity:.6">' + d.lvl + '</small>' : ''}</span><span>${d.banked}</span></li>`).join('');
     if ($('board').innerHTML !== html) $('board').innerHTML = html;
   }
