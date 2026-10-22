@@ -5,8 +5,10 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { EventEmitter } = require('events');
+const { Accounts, UserError, CATALOG, LOADOUT: LOADOUT_CFG, xpForLevel, MAX_LEVEL } = require('./accounts');
 
 const PORT = process.env.PORT || 3000;
+let accounts = new Accounts(process.env.DATABASE_URL), dbError = null;
 const INDEX_PATH = path.join(__dirname, 'index.html');
 
 // ---------- game constants ----------
@@ -17,42 +19,53 @@ const BOT_SENSE = 260;      // how far a bot's detector reaches
 const OWN_DROP_LOCK = 5;    // seconds before you can pick back up what was knocked out of your bag
 const DIG_REACH = 46;       // how close you must be to a find to dig it (any direction)
 const TYPES = [
-  { k: 'junk',   v: 1,   taps: 2,  col: '#a7a69a', ring: '#d9d8cc', names: ['Bottle cap', 'Ring pull', 'Rusty nail'], w: 30, tone: 'square', base: 180 },
-  { k: 'common', v: 10,  taps: 4,  col: '#c98a46', ring: '#e8a35a', names: ['Old penny', 'Brass button', 'Musket ball'], w: 40, tone: 'triangle', base: 520 },
-  { k: 'rare',   v: 40,  taps: 7,  col: '#dfe8ef', ring: '#eef6ff', names: ['Silver brooch', 'Silver shilling', 'Sword hilt'], w: 22, tone: 'sine', base: 760 },
-  { k: 'epic',   v: 150, taps: 12, col: '#f2c230', ring: '#ffd447', names: ['Gold torc', 'Saxon ring', 'Roman helmet'], w: 8, tone: 'sine', base: 980 },
-  { k: 'box',    v: 0,   taps: 3,  col: '#4fc3e8', ring: '#8fe6ff', names: ['Mystery box', 'Mystery box', 'Mystery box'], w: 0, tone: 'triangle', base: 640 },
+  { k: 'junk',   v: 1,   taps: 2,  col: '#a7a69a', ring: '#d9d8cc', w: 30, tone: 'square', base: 180,
+    names: ['Bottle cap', 'Ring pull', 'Rusty nail', 'Toy car', 'Bent spoon', 'Lost key', 'Tin soldier', 'Old horseshoe', 'Shotgun cartridge', 'Foil wrapper'] },
+  { k: 'common', v: 10,  taps: 4,  col: '#c98a46', ring: '#e8a35a', w: 40, tone: 'triangle', base: 520,
+    names: ['Old penny', 'Brass button', 'Musket ball', 'Thimble', 'Buckle', 'Clay pipe', 'Farthing', 'Lead token', 'Copper ring', 'Harness bell'] },
+  { k: 'rare',   v: 40,  taps: 7,  col: '#dfe8ef', ring: '#eef6ff', w: 22, tone: 'sine', base: 760,
+    names: ['Silver brooch', 'Silver shilling', 'Sword hilt', 'Pocket watch', 'Silver spoon', 'Medieval seal', 'Signet ring', 'Silver locket', 'Roman denarius', 'Spur'] },
+  { k: 'epic',   v: 150, taps: 12, col: '#f2c230', ring: '#ffd447', w: 8, tone: 'sine', base: 980,
+    names: ['Gold torc', 'Saxon ring', 'Roman helmet', 'Gold guinea', 'Viking arm ring', 'Jewelled crown', 'Gold chalice', 'Celtic stater'] },
+  { k: 'box',    v: 0,   taps: 3,  col: '#4fc3e8', ring: '#8fe6ff', w: 0, tone: 'triangle', base: 640, names: ['Mystery box'] },
+  { k: 'heavy',  v: 300, taps: 16, col: '#9b7bd1', ring: '#c9a6ff', w: 0, tone: 'sawtooth', base: 260,
+    names: ['Viking anchor', 'Bronze bell', "Stone king's head", 'Iron cannon', "Pirate's chest", 'Roman milestone', 'Knight in armour', 'Church bell'] },
+  { k: 'scrap',  v: 6,   taps: 1,  col: '#8d8478', ring: '#b8b0a2', w: 0, tone: 'square', base: 200, names: ['Scrap metal', 'Bent bracket', 'Iron shard', 'Bronze fragment'] },
 ];
-const BOX = 4;
+const BOX = 4, HEAVY = 5, SCRAP = 6, HEAVIES = 2; // HEAVIES: how many heavy finds are buried at once
+const HEAVY_WAIT = 10;  // seconds a heavy find waits above ground for two carriers before it sinks
+const HEAVY_HP = 8;     // bonks it takes to smash a heavy find
+const SCRAP_PIECES = 10; // a smashed heavy find scatters 20% of its value as this many scrap drops
 // ---------- powerups ----------
 const POWERS = {
   c: { name: 'Pro coil',    short: 'COIL',    dur: 20, desc: 'Detector reaches twice as far' },
   t: { name: 'Turbo spade', short: 'TURBO',   dur: 15, desc: 'Every dig counts double' },
   w: { name: 'Wellies',     short: 'WELLIES', dur: 15, desc: 'Faster, and you can walk over holes' },
-  p: { name: 'Padlock',     short: 'LOCK',    dur: 0,  cost: 40, desc: 'Blocks the next bonk on you' },
-  s: { name: 'Scarecrow',   short: 'SCARE',   dur: 30, cost: 60, desc: 'Magpies leave you alone' },
-  d: { name: 'Decoy',       short: 'DECOY',   dur: 0,  cost: 80, desc: 'Plants a fake gold find that is really junk' },
+  p: { name: 'Padlock',     short: 'LOCK',    dur: 0,  cost: 60,  desc: 'Blocks the next bonk while you carry finds' },
+  s: { name: 'Scarecrow',   short: 'SCARE',   dur: 30, cost: 90,  desc: 'Magpies leave you alone' },
+  d: { name: 'Decoy',       short: 'DECOY',   dur: 0,  cost: 120, desc: 'Plants a fake gold find that is really junk' },
+  // lucky
+  m: { name: 'Magnet',       short: 'MAGNET',  dur: 10, desc: 'Pulls in dropped finds and scrap around you' },
+  l: { name: 'Lucky charm',  short: 'LUCKY',   dur: 0,  desc: 'Your next 3 finds are upgraded a tier' },
+  r: { name: 'Treasure map', short: 'MAP',     dur: 15, desc: 'Marks the best finds on the field' },
+  // pvp
+  b: { name: 'Banana peel',  short: 'BANANA',  dur: 0,  desc: 'Drops a trap: whoever slips drops their best find' },
+  k: { name: 'Stink bomb',   short: 'STINK',   dur: 8,  desc: "Scrambles everyone's detector around you" },
+  g: { name: 'Sticky glove', short: 'GLOVE',   dur: 30, desc: 'Your next bonk steals the find straight into your bag' },
+  q: { name: 'Big bonk',     short: 'BIG BONK',dur: 0,  desc: 'Shockwave: everyone around you drops their best find' },
 };
-const BOX_POWERS = ['c', 't', 'w'], ALL_POWERS = Object.keys(POWERS);
+const BOX_POWERS = ['c', 't', 'w', 'm', 'l', 'r'], ALL_POWERS = Object.keys(POWERS);
+// Loadout: one powerup to start the round with, bought with coins on the player's phone
+const MAGNET_R = 170, STINK_R = 150, SHOCK_R = 85, TRAP_LIFE = 60;
 const BOX_CHANCE = 1 / 12, CRATE_FIRST = 20, CRATE_EVERY = 30;
+const TIRED_AFTER = 2, TIRED_SECS = 10; // bonking empty-handed players this many times in 15s tires your arm
 const pick = a => a[Math.random() * a.length | 0];
 // ---------- cosmetics (bought in each player's wardrobe; the server only checks the ids are real) ----------
-const LOOK_IDS = {
-  hat: ['none', 'cap', 'bucket', 'beanie', 'hard', 'pirate', 'crown'],
-  jacket: ['auto', 'red', 'yellow', 'pink', 'orange', 'purple', 'sky', 'black', 'white', 'camo'],
-  boots: ['green', 'yellow', 'red', 'pink', 'blue', 'gold'],
-  det: ['classic', 'retro', 'neon', 'gold'],
-  spade: ['old', 'steel', 'gold'],
-  win: ['confetti', 'fireworks', 'coins', 'fanfare'],
-};
-const JACKET_HEX = { red: '#c0392b', yellow: '#e2b822', pink: '#e84393', orange: '#e67e22', purple: '#8e44ad', sky: '#3fa7d6', black: '#2b2b2b', white: '#ecebe4', camo: '#5d6b3a' };
-function cleanLook(raw) {
-  const l = {};
-  for (const k in LOOK_IDS) { const v = raw && raw[k]; l[k] = LOOK_IDS[k].includes(v) ? v : LOOK_IDS[k][0]; }
-  return l;
-}
+const LOOK_IDS = Object.fromEntries(Object.entries(CATALOG).map(([k, v]) => [k, v.items.map(i => i[0])]));
+const JACKET_HEX = { red: '#c0392b', yellow: '#e2b822', pink: '#e84393', orange: '#e67e22', purple: '#8e44ad', sky: '#3fa7d6', black: '#2b2b2b', white: '#ecebe4', camo: '#5d6b3a', hivis: '#cde62a', stripes: '#1f3b73', tartan: '#a3262a' };
+const cleanLook = (raw, acct) => accounts.cleanLook(acct || null, raw); // guests only get the free items
 function botLook() {
-  const l = {}; for (const k in LOOK_IDS) l[k] = k === 'jacket' ? 'auto' : pick(LOOK_IDS[k]); return l;
+  const l = {}; for (const k in LOOK_IDS) l[k] = k === 'jacket' ? 'auto' : (k === 'pet' || k === 'trail') && Math.random() < 0.6 ? 'none' : pick(LOOK_IDS[k]); return l;
 }
 const lookCol = (look, base) => look.jacket !== 'auto' && JACKET_HEX[look.jacket] ? JACKET_HEX[look.jacket] : base;
 const TOTALW = TYPES.reduce((a, t) => a + t.w, 0);
@@ -88,25 +101,26 @@ class Room {
   resetWorld() {
     this.diggers = []; this.buried = []; this.holes = []; this.loose = []; this.magpies = [];
     this.ev = []; this.timeLeft = ROUND; this.magpieT = 10; this.uid = 1; this.t = 0;
-    this.crates = []; this.crateT = CRATE_FIRST;
+    this.crates = []; this.crateT = CRATE_FIRST; this.heavies = []; this.traps = [];
   }
   send(ws, obj) { if (ws.readyState === 1) ws.send(JSON.stringify(obj)); }
   broadcast(obj) { const s = JSON.stringify(obj); for (const ws of this.clients.keys()) if (ws.readyState === 1) ws.send(s); }
   lobbyMsg() {
     this.broadcast({ t: 'lobby', code: this.code, host: this.host, state: this.state,
-      players: [...this.clients.values()].map(c => ({ id: c.id, name: c.name, col: c.col })) });
+      players: [...this.clients.values()].map(c => ({ id: c.id, name: c.name, col: c.col, lvl: c.lvl, guest: !c.acct })) });
   }
-  addClient(ws, name, rawLook) {
+  addClient(ws, name, rawLook, acct) {
     const used = new Set([...this.clients.values()].map(c => c.base));
-    const base = HUMAN_COLS.find(x => !used.has(x)) || HUMAN_COLS[0], look = cleanLook(rawLook);
-    const c = { id: this.nextId++, name, base, look, col: lookCol(look, base) };
+    const base = HUMAN_COLS.find(x => !used.has(x)) || HUMAN_COLS[0];
+    const look = acct ? accounts.cleanLook(acct, acct.data.look) : cleanLook(rawLook);
+    const c = { id: this.nextId++, name: acct ? acct.name : name, base, look, col: lookCol(look, base), lvl: acct ? accounts.level(acct) : 0, acct: acct || null };
     this.clients.set(ws, c);
     if (this.host === null) this.host = c.id;
     this.send(ws, { t: 'hello', you: c.id });
     if (this.state === 'play') {
-      const d = this.makeDigger(c.id, c.name, c.col, false, Math.random() * 6, c.look);
+      const d = this.makeDigger(c.id, c.name, c.col, false, Math.random() * 6, c.look, c.lvl);
       this.diggers.push(d);
-      this.ev.push(['join', { id: d.id, name: d.name, col: d.col, bot: 0, look: d.look }]);
+      this.ev.push(['join', { id: d.id, name: d.name, col: d.col, bot: 0, look: d.look, lvl: d.lvl }]);
       this.send(ws, this.initMsg(c.id));
     }
     this.lobbyMsg();
@@ -122,15 +136,15 @@ class Room {
   }
   setLook(id, raw) {
     const c = [...this.clients.values()].find(x => x.id === id); if (!c) return;
-    c.look = cleanLook(raw); c.col = lookCol(c.look, c.base);
+    c.look = cleanLook(raw, c.acct); c.col = lookCol(c.look, c.base);
     const d = this.diggers.find(x => x.id === id);
     if (d) { d.look = c.look; d.col = c.col; this.ev.push(['look', id, c.look, c.col]); }
     this.lobbyMsg();
   }
-  makeDigger(id, name, col, isBot, slot, look) {
+  makeDigger(id, name, col, isBot, slot, look, lvl) {
     const a = slot / 6 * Math.PI * 2 + 0.4;
-    return { id, name, col, isBot, look: look || botLook(), x: MUSEUM.x + Math.cos(a) * 170, y: MUSEUM.y + 10 + Math.sin(a) * 140, dir: a,
-      bag: [], banked: 0, stun: 0, immune: 0, bonkCd: 0, swing: 0, moving: false, lastDig: 0, power: null, fx: {}, padlock: false,
+    return { id, name, col, isBot, look: look || botLook(), lvl: isBot ? 1 + (Math.random() * 15 | 0) : lvl || 0, lucky: 0, x: MUSEUM.x + Math.cos(a) * 170, y: MUSEUM.y + 10 + Math.sin(a) * 140, dir: a,
+      bag: [], banked: 0, stun: 0, immune: 0, bonkCd: 0, swing: 0, moving: false, lastDig: 0, power: null, fx: {}, padlock: false, carry: null, grief: 0, griefT: 0, tired: 0,
       ai: isBot ? { mode: 'hunt', item: null, think: 0, digT: 0, digRate: 2 + Math.random() * 1, bankAt: 40 + Math.random() * 110,
         aggro: 0.3 + Math.random() * 0.6, robCd: 4 + Math.random() * 6, chase: 0, victim: null, loot: null,
         lx: 0, ly: 0, stuckT: 0, detour: 0, detourA: 0, wander: null } : null };
@@ -138,40 +152,62 @@ class Room {
   start() {
     this.resetWorld();
     const humans = [...this.clients.values()];
-    humans.forEach((c, i) => this.diggers.push(this.makeDigger(c.id, c.name, c.col, false, i, c.look)));
+    humans.forEach((c, i) => this.diggers.push(this.makeDigger(c.id, c.name, c.col, false, i, c.look, c.lvl)));
     const bots = Math.max(0, MIN_DIGGERS - humans.length);
     for (let i = 0; i < bots; i++) { const [n, col] = BOTS[i]; this.diggers.push(this.makeDigger(1000 + i, n, col, true, humans.length + i)); }
     for (let i = 0; i < ITEMS; i++) this.spawnItem(false);
-    this.ev = [];
+    for (let i = 0; i < HEAVIES; i++) this.spawnItem(false, HEAVY);
+    this.ev = []; this.traps = [];
     this.state = 'play';
+    // starting powerups are paid for from the account as the round begins
+    for (const [ws, c] of this.clients) if (c.acct) accounts.chargeLoadout(c.acct).then(k => {
+      if (!k || this.state !== 'play') return;
+      const d = this.diggers.find(x => x.id === c.id); if (d) this.givePower(d, k, 'loadout');
+      this.send(ws, { t: 'profile', profile: accounts.profile(c.acct) });
+    }).catch(e => console.error('loadout', e.message));
     for (const [ws, c] of this.clients) this.send(ws, this.initMsg(c.id));
     this.lobbyMsg();
   }
   initMsg(you) {
     return { t: 'init', you, types: TYPES, powers: POWERS, world: WORLD, museum: MUSEUM, round: ROUND, dusk: DUSK, tl: this.timeLeft,
-      diggers: this.diggers.map(d => ({ id: d.id, name: d.name, col: d.col, bot: d.isBot ? 1 : 0, look: d.look })),
+      diggers: this.diggers.map(d => ({ id: d.id, name: d.name, col: d.col, bot: d.isBot ? 1 : 0, look: d.look, lvl: d.lvl })),
+      traps: (this.traps || []).map(tr => [tr.id, Math.round(tr.x), Math.round(tr.y), tr.owner]),
       buried: this.buried.map(b => [b.id, Math.round(b.x), Math.round(b.y), b.ti, b.prog, b.name, b.owner || 0]),
       holes: this.holes.map(h => [Math.round(h.x), Math.round(h.y), h.r]),
-      loose: this.loose.map(l => [l.id, Math.round(l.x), Math.round(l.y), l.item.ti, l.item.name]) };
+      loose: this.loose.map(l => [l.id, Math.round(l.x), Math.round(l.y), l.item.ti, l.item.name]),
+      heavies: this.heavies.map(h => [h.id, Math.round(h.x), Math.round(h.y), h.name, h.carriers.map(c => c.id).join(','), h.hp, Math.ceil(h.wait)]) };
   }
   end() {
     this.state = 'end';
-    this.broadcast({ t: 'end', rank: [...this.diggers].sort((a, b) => b.banked - a.banked).map(d => [d.id, d.name, d.col, d.banked, d.isBot ? 1 : 0]) });
+    const ranked = [...this.diggers].sort((a, b) => b.banked - a.banked);
+    this.broadcast({ t: 'end', rank: ranked.map(d => [d.id, d.name, d.col, d.banked, d.isBot ? 1 : 0]) });
+    // coins and XP go onto each signed-in player's account
+    for (const [ws, c] of this.clients) {
+      if (!c.acct) continue;
+      const place = ranked.findIndex(d => d.id === c.id); if (place < 0) continue;
+      accounts.reward(c.acct, ranked[place].banked, place).then(r => {
+        c.lvl = accounts.level(c.acct);
+        this.send(ws, { t: 'reward', ...r, profile: accounts.profile(c.acct) });
+        this.lobbyMsg();
+      }).catch(e => { console.error('reward', e.message); this.send(ws, { t: 'reward', error: 'Couldn\'t save this round to your account. Try again later.' }); });
+    }
     this.lobbyMsg();
   }
 
   // ----- world -----
   humanNear(x, y, r) { return this.diggers.some(d => !d.isBot && Math.hypot(d.x - x, d.y - y) < r); }
   inHole(x, y, pad) { return this.holes.some(h => Math.hypot(h.x - x, h.y - y) < h.r + pad); }
-  spawnItem(awayFromPlayers) {
+  spawnItem(awayFromPlayers, forceTi) {
     for (let tries = 0; tries < 60; tries++) {
       const x = 70 + Math.random() * (WORLD - 140), y = 70 + Math.random() * (WORLD - 140);
       if (inMuseumZone(x, y, 90)) continue;
       if (awayFromPlayers && this.humanNear(x, y, 400)) continue;
       if (this.buried.some(b => Math.hypot(b.x - x, b.y - y) < 60)) continue;
       if (this.inHole(x, y, 40)) continue;
-      const ti = Math.random() < BOX_CHANCE ? BOX : pickTypeIdx();
-      const b = { id: this.uid++, x, y, ti, name: TYPES[ti].names[Math.random() * 3 | 0], prog: 0 };
+      const ti = forceTi != null ? forceTi : Math.random() < BOX_CHANCE ? BOX : pickTypeIdx();
+      let name = pick(TYPES[ti].names);
+      if (ti === HEAVY) { const used = new Set([...this.buried, ...this.heavies].map(o => o.name)); name = pick(TYPES[HEAVY].names.filter(n => !used.has(n))) || name; }
+      const b = { id: this.uid++, x, y, ti, name, prog: 0 };
       this.buried.push(b);
       if (awayFromPlayers) this.ev.push(['spawn', b.id, Math.round(x), Math.round(y), ti, b.name, 0]);
       return;
@@ -199,21 +235,102 @@ class Room {
       this.ev.push(['decoyed', d.id, item.owner]);
       return; // decoys aren't replaced
     }
+    if (item.ti === HEAVY) {
+      const h = { id: this.uid++, x: item.x, y: item.y, name: item.name, carriers: [], hp: HEAVY_HP, wait: HEAVY_WAIT };
+      this.heavies.push(h);
+      this.ev.push(['heavy', h.id, Math.round(h.x), Math.round(h.y), h.name, d.id]);
+      return; // a new heavy find is buried once this one is banked
+    }
     if (item.ti === BOX) this.givePower(d, pick(BOX_POWERS), 'box');
+    else if (d.lucky > 0 && item.ti < 3) {
+      d.lucky--;
+      const ti = item.ti + 1, name = pick(TYPES[ti].names);
+      d.bag.push({ ti, name });
+      this.ev.push(['lucky', d.id, ti, name, d.lucky]);
+    }
     else d.bag.push({ ti: item.ti, name: item.name });
     this.spawnItem(true);
+  }
+
+  // ----- heavy finds: two people carry, the points are split -----
+  lift(d, h) {
+    if (d.carry || d.stun > 0 || !this.heavies.includes(h) || h.carriers.length >= 2 || dist(d, h) > 46) return;
+    d.carry = h; h.carriers.push(d);
+    if (d.ai) { d.ai.mode = 'haul'; d.ai.holdT = 0; }
+    this.ev.push(['lift', h.id, d.id]);
+  }
+  unlift(d) {
+    const h = d.carry; if (!h) return;
+    d.carry = null; h.carriers = h.carriers.filter(c => c !== d);
+    this.ev.push(['unlift', h.id, d.id]);
+  }
+  updateHeavies(dt) {
+    for (const h of [...this.heavies]) {
+      for (const c of [...h.carriers]) if (!this.diggers.includes(c) || c.stun > 0 || dist(c, h) > 95) this.unlift(c);
+      // someone is holding one end: the nearest free bot comes to help (and takes half)
+      if (h.carriers.length === 1 && !this.diggers.some(o => o.ai && !o.carry && o.ai.mode === 'help' && o.ai.heavy === h)) {
+        let best = null, bd = 700;
+        for (const o of this.diggers) {
+          if (!o.ai || o.carry || o.stun > 0 || o.ai.mode === 'rob' || (o.ai.mode === 'bank' && bagValue(o) >= 100)) continue;
+          const dd = dist(o, h); if (dd < bd) { bd = dd; best = o; }
+        }
+        if (best) { best.ai.mode = 'help'; best.ai.heavy = h; }
+      }
+      // without two carriers it only waits so long before sinking back into the mud
+      if (h.carriers.length < 2) {
+        if ((h.wait -= dt) <= 0) {
+          for (const c of [...h.carriers]) this.unlift(c);
+          this.heavies.splice(this.heavies.indexOf(h), 1);
+          this.ev.push(['hgone', h.id, h.name]);
+          this.spawnItem(true, HEAVY);
+          continue;
+        }
+      } else h.wait = HEAVY_WAIT;
+      if (h.carriers.length === 2) {
+        const [a, b] = h.carriers, k = Math.min(1, dt * 10);
+        h.x += ((a.x + b.x) / 2 - h.x) * k; h.y += ((a.y + b.y) / 2 - h.y) * k;
+      }
+      if (h.carriers.length === 2 && inMuseumZone(h.x, h.y)) {
+        const share = Math.round(TYPES[HEAVY].v / h.carriers.length);
+        for (const c of h.carriers) { c.banked += share; c.carry = null; }
+        this.ev.push(['hbank', h.id, h.carriers.map(c => c.id).join(','), share, h.name]);
+        this.heavies.splice(this.heavies.indexOf(h), 1);
+        this.spawnItem(true, HEAVY);
+      }
+    }
+  }
+
+  heavyInReach(a) {
+    for (const h of this.heavies) if (!h.carriers.includes(a) && dist(a, h) < 52) return h;
+    return null;
+  }
+  hitHeavy(h, a) {
+    h.hp--;
+    this.ev.push(['hhit', h.id, a.id, h.hp]);
+    if (h.hp > 0) return;
+    // smashed: scatter scrap worth 20% of it, nobody banks the rest
+    for (const c of [...h.carriers]) this.unlift(c);
+    this.heavies.splice(this.heavies.indexOf(h), 1);
+    this.ev.push(['hbreak', h.id, a.id, h.name]);
+    for (let i = 0; i < SCRAP_PIECES; i++) this.dropLoose({ ti: SCRAP, name: pick(TYPES[SCRAP].names) }, h.x, h.y, i / SCRAP_PIECES * Math.PI * 2, null);
+    this.spawnItem(true, HEAVY);
   }
 
   // ----- powerups -----
   givePower(d, k, src) {
     if (k === 'p') d.padlock = true; else d.power = k;
     this.ev.push(['power', d.id, k, src]);
-    if (d.isBot && k !== 'p') this.usePower(d);
+    // bots use most things straight away; they save area attacks until someone's close
+    if (d.isBot && k !== 'p' && k !== 'q' && k !== 'k') this.usePower(d);
   }
   usePower(d) {
     const k = d.power; if (!k || d.stun > 0) return;
     d.power = null;
     if (k === 'd') this.plantDecoy(d);
+    else if (k === 'l') d.lucky = 3;
+    else if (k === 'b') this.plantTrap(d);
+    else if (k === 'k') this.stinkBomb(d);
+    else if (k === 'q') this.bigBonk(d);
     else d.fx[k] = POWERS[k].dur;
     if (k === 's') for (const m of this.magpies) if (m.target === d && m.state === 'hunt') { m.state = 'leave'; m.fleeA = Math.atan2(m.y - d.y, m.x - d.x); }
     this.ev.push(['use', d.id, k]);
@@ -228,6 +345,55 @@ class Room {
     const b = { id: this.uid++, x, y, ti: 3, name: pick(TYPES[3].names), prog: 0, decoy: true, owner: d.id };
     this.buried.push(b);
     this.ev.push(['spawn', b.id, Math.round(x), Math.round(y), 3, b.name, d.id]);
+  }
+  spotBehind(d, avoidBuried) {
+    for (let k = 0; k < 10; k++) {
+      const a = d.dir + Math.PI + (k % 2 ? 1 : -1) * k * 0.5, r = 30 + k * 4;
+      const tx = clampW(d.x + Math.cos(a) * r), ty = clampW(d.y + Math.sin(a) * r);
+      if (!this.inHole(tx, ty, 16) && !inMuseumZone(tx, ty, 30) && (!avoidBuried || !this.buried.some(b => Math.hypot(b.x - tx, b.y - ty) < 30))) return { x: tx, y: ty };
+    }
+    return { x: d.x, y: d.y };
+  }
+  plantTrap(d) {
+    const p = this.spotBehind(d, false);
+    const tr = { id: this.uid++, x: p.x, y: p.y, owner: d.id, age: 0 };
+    this.traps.push(tr);
+    this.ev.push(['trap', tr.id, Math.round(tr.x), Math.round(tr.y), d.id]);
+  }
+  slip(tr, v) {
+    this.traps.splice(this.traps.indexOf(tr), 1);
+    if (v.carry) { this.ev.push(['slip', tr.id, v.id, -1, '']); this.hitHeavy(v.carry, { id: tr.owner }); return; }
+    v.stun = 1.5; v.immune = 3;
+    const dropped = this.takeBest(v);
+    this.ev.push(['slip', tr.id, v.id, dropped ? dropped.ti : -1, dropped ? dropped.name : '', tr.owner]);
+    if (dropped) this.dropLoose(dropped, v.x, v.y, Math.random() * 7, v.id);
+  }
+  takeBest(v) {
+    if (!v.bag.length) return null;
+    let bi = 0; v.bag.forEach((b, i) => { if (TYPES[b.ti].v > TYPES[v.bag[bi].ti].v) bi = i; });
+    return v.bag.splice(bi, 1)[0];
+  }
+  stinkBomb(d) {
+    const hit = [];
+    for (const o of this.diggers) if (o !== d && dist(o, d) < STINK_R && !inMuseumZone(o.x, o.y, 10)) { o.fx.x = POWERS.k.dur; hit.push(o.id); }
+    this.ev.push(['stink', d.id, Math.round(d.x), Math.round(d.y), hit.join(',')]);
+  }
+  bigBonk(d) {
+    const hit = [];
+    for (const o of [...this.diggers]) {
+      if (o === d || dist(o, d) > SHOCK_R || inMuseumZone(o.x, o.y, 10)) continue;
+      if (o.carry) { const h = o.carry; this.hitHeavy(h, d); if (this.heavies.includes(h)) this.hitHeavy(h, d); hit.push(o.id); continue; }
+      if (o.immune > 0) continue;
+      o.stun = 1; o.immune = 3;
+      const ang = Math.atan2(o.y - d.y, o.x - d.x);
+      o.x = clampW(o.x + Math.cos(ang) * 20); o.y = clampW(o.y + Math.sin(ang) * 20);
+      if (!o.isBot) this.ev.push(['pos', o.id, Math.round(o.x), Math.round(o.y)]);
+      const dropped = this.takeBest(o);
+      if (dropped) this.dropLoose(dropped, o.x, o.y, ang, o.id);
+      hit.push(o.id);
+    }
+    for (const m of this.magpies) if (m.stun <= 0 && m.alt < 40 && dist(m, d) < SHOCK_R) this.hitMagpie(m, d);
+    this.ev.push(['shock', d.id, Math.round(d.x), Math.round(d.y), hit.join(',')]);
   }
   buy(d, k) {
     const P = POWERS[k]; if (!P || !P.cost) return;
@@ -274,25 +440,32 @@ class Room {
     return null;
   }
   bonk(a) {
-    if (a.bonkCd > 0 || a.stun > 0) return false;
+    if (a.bonkCd > 0 || a.stun > 0 || a.carry || a.tired > 0) return false;
     a.bonkCd = 0.6; a.swing = 0.25;
     const mg = this.magpieInReach(a);
     if (mg) { this.hitMagpie(mg, a); return true; }
     const v = this.bonkVictim(a);
+    // carriers can't be robbed: bonking them (or the find itself) damages the heavy find instead
+    if (v && v.carry && !v.carry.carriers.includes(a)) { this.hitHeavy(v.carry, a); return true; }
+    if (!v) { const h = this.heavyInReach(a); if (h) { this.hitHeavy(h, a); return true; } }
     if (!v) { this.ev.push(['whiff', a.id]); return false; }
     if (v.immune > 0) { this.ev.push(['blocked', a.id, v.id]); return true; }
-    if (v.padlock) { v.padlock = false; v.immune = 1.5; this.ev.push(['padlock', a.id, v.id]); return true; }
+    // a padlock is only used up when there's something in the bag to protect
+    if (v.padlock && v.bag.length) { v.padlock = false; v.immune = 1.5; this.ev.push(['padlock', a.id, v.id]); return true; }
     v.stun = 1; v.immune = 3;
     const ang = Math.atan2(v.y - a.y, v.x - a.x);
     v.x = clampW(v.x + Math.cos(ang) * 14); v.y = clampW(v.y + Math.sin(ang) * 14);
     if (!v.isBot) this.ev.push(['pos', v.id, Math.round(v.x), Math.round(v.y)]);
-    let dropped = null;
-    if (v.bag.length) {
-      let bi = 0; v.bag.forEach((b, i) => { if (TYPES[b.ti].v > TYPES[v.bag[bi].ti].v) bi = i; });
-      dropped = v.bag.splice(bi, 1)[0];
+    const dropped = this.takeBest(v);
+    if (dropped && a.fx.g > 0) { // sticky glove: straight into the bonker's bag
+      delete a.fx.g; a.bag.push(dropped);
+      this.ev.push(['bonk', a.id, v.id, dropped.ti, dropped.name, 1]);
+      return true;
     }
     this.ev.push(['bonk', a.id, v.id, dropped ? dropped.ti : -1, dropped ? dropped.name : '']);
     if (dropped) this.dropLoose(dropped, v.x, v.y, ang, v.id);
+    else if (++a.grief >= TIRED_AFTER) { a.grief = 0; a.tired = TIRED_SECS; this.ev.push(['tired', a.id, TIRED_SECS]); }
+    else a.griefT = 15;
     return true;
   }
 
@@ -326,7 +499,7 @@ class Room {
         const tg = m.target;
         if (!this.diggers.includes(tg) || !shiny(tg) || tg.fx.s > 0 || inMuseumZone(tg.x, tg.y, 20) || m.t > 14) { m.state = 'leave'; m.fleeA = Math.atan2(m.y - tg.y, m.x - tg.x); }
         else {
-          gx = tg.x; gy = tg.y; sp = 240;
+          gx = tg.x; gy = tg.y; sp = 175;
           const dd = Math.hypot(gx - m.x, gy - m.y); m.alt = Math.min(60, dd * 0.3);
           if (dd < 16) {
             let bi = -1; tg.bag.forEach((b, i) => { if (TYPES[b.ti].v >= 40 && (bi < 0 || TYPES[b.ti].v > TYPES[tg.bag[bi].ti].v)) bi = i; });
@@ -339,7 +512,7 @@ class Room {
       if (m.state === 'flee' || m.state === 'leave') {
         m.ts += dt;
         gx = m.x + Math.cos(m.fleeA) * 100; gy = m.y + Math.sin(m.fleeA) * 100;
-        sp = m.state === 'flee' ? (m.ts < 1.3 ? 115 : 220) : 240;
+        sp = m.state === 'flee' ? (m.ts < 1.3 ? 100 : 185) : 200;
         m.alt = Math.min(60, m.alt + dt * (m.state === 'flee' ? 22 : 60));
       }
       const dd = Math.hypot(gx - m.x, gy - m.y) || 1;
@@ -356,7 +529,7 @@ class Room {
     d.moving = mag > 0.05 && d.stun <= 0;
     if (!d.moving) return;
     if (mag > 1) { mx /= mag; my /= mag; }
-    const speed = base * (1 - Math.min(0.45, d.bag.length * 0.05)) * (d.fx.w > 0 ? 1.3 : 1);
+    const speed = base * (1 - Math.min(0.45, d.bag.length * 0.05)) * (d.fx.w > 0 ? 1.3 : 1) * (d.carry ? (d.carry.carriers.length === 2 ? 0.7 : 0) : 1);
     d.x += mx * speed * dt; d.y += my * speed * dt;
     if (!(d.fx.w > 0)) for (let pass = 0; pass < 2; pass++) for (const h of this.holes) pushOut(d, h.x, h.y, h.r + 11);
     d.x = clampW(d.x); d.y = clampW(d.y);
@@ -365,7 +538,21 @@ class Room {
   botThink(b, dt) {
     const ai = b.ai;
     ai.robCd -= dt; ai.think -= dt;
-    if (b.stun > 0) { if (ai.mode === 'dig') ai.mode = 'hunt'; b.moving = false; return; }
+    if (b.stun > 0) { if (ai.mode === 'dig' || ai.mode === 'help') ai.mode = 'hunt'; b.moving = false; return; }
+    if (b.power === 'q' && this.diggers.some(o => o !== b && dist(o, b) < SHOCK_R - 15 && (o.bag.length || o.carry))) this.usePower(b);
+    if (b.power === 'k' && this.diggers.filter(o => o !== b && dist(o, b) < STINK_R).length >= 2) this.usePower(b);
+    if (b.carry) { // hauling a heavy find: head for the Museum, give up if nobody helps
+      const h = b.carry;
+      ai.holdT = (ai.holdT || 0) + dt;
+      if (h.carriers.length < 2 && ai.holdT > 15) { this.unlift(b); ai.mode = 'hunt'; ai.heavyCd = 15; return; }
+      if (!this.heavies.includes(h)) { b.carry = null; ai.mode = 'hunt'; return; }
+      if (h.carriers.length === 2) ai.holdT = 0;
+      const ang = Math.atan2(MUSEUM.y - b.y, MUSEUM.x - b.x);
+      this.moveDigger(b, Math.cos(ang), Math.sin(ang), dt, 150);
+      return;
+    }
+    ai.heavyCd = Math.max(0, (ai.heavyCd || 0) - dt);
+    if (ai.mode === 'haul') ai.mode = 'hunt'; // put down (bonked, banked or let go)
     const mg = this.magpieInReach(b);
     if (mg && b.bonkCd <= 0 && !mg.rolled.has(b)) { mg.rolled.add(b); if (Math.random() < 0.3 + ai.aggro * 0.3) { b.dir = Math.atan2(mg.y - b.y, mg.x - b.x); this.bonk(b); } }
     const bv = bagValue(b);
@@ -374,7 +561,7 @@ class Room {
       ai.think = 0.35 + Math.random() * 0.4;
       if (ai.mode !== 'rob' && ai.mode !== 'bank' && ai.robCd <= 0 && bv < 60) {
         let best = null, bd = 220;
-        for (const o of this.diggers) { if (o === b || o.immune > 0 || bagValue(o) < 20 || inMuseumZone(o.x, o.y, 20)) continue; const dd = dist(o, b); if (dd < bd) { bd = dd; best = o; } }
+        for (const o of this.diggers) { if (o === b || (o.immune > 0 && !o.carry) || (bagValue(o) < 20 && !o.carry) || inMuseumZone(o.x, o.y, 20)) continue; const dd = dist(o, b); if (dd < bd) { bd = dd; best = o; } }
         if (best && Math.random() < ai.aggro) { ai.mode = 'rob'; ai.victim = best; ai.chase = 3 + Math.random() * 2; }
         else ai.robCd = 1.5;
       }
@@ -384,6 +571,11 @@ class Room {
         if (best && (ai.mode !== 'dig' || TYPES[best.item.ti].v > 10)) { ai.mode = 'grab'; ai.loot = best; }
       }
       if (ai.mode === 'hunt' && this.crates.length && dist(this.crates[0], b) < 500) { ai.mode = 'crate'; ai.crate = this.crates[0]; }
+      if (ai.mode === 'hunt' && !ai.heavyCd) for (const h of this.heavies) {
+        if (h.carriers.length >= 2 || dist(h, b) > 450) continue;
+        if (this.diggers.some(o => o !== b && o.ai && !o.carry && o.ai.mode === 'help' && o.ai.heavy === h)) continue;
+        if (h.carriers.length === 1 || Math.random() < 0.2) { ai.mode = 'help'; ai.heavy = h; ai.holdT = 0; break; }
+      }
     }
     let gx = null, gy = null;
     if (ai.mode === 'bank') {
@@ -392,11 +584,16 @@ class Room {
     }
     if (ai.mode === 'rob') {
       const v = ai.victim; ai.chase -= dt;
-      if (ai.chase <= 0 || !v || !this.diggers.includes(v) || v.immune > 0 || !v.bag.length || inMuseumZone(v.x, v.y, 10)) { ai.mode = 'hunt'; ai.robCd = 5 + Math.random() * 5; }
+      if (ai.chase <= 0 || !v || !this.diggers.includes(v) || (!v.carry && (v.immune > 0 || !v.bag.length)) || inMuseumZone(v.x, v.y, 10)) { ai.mode = 'hunt'; ai.robCd = 5 + Math.random() * 5; }
       else {
         gx = v.x; gy = v.y;
-        if (dist(b, v) < 36) { b.dir = Math.atan2(v.y - b.y, v.x - b.x); if (this.bonk(b)) { ai.mode = 'hunt'; ai.robCd = 6 + Math.random() * 5; } }
+        if (dist(b, v) < 36) { b.dir = Math.atan2(v.y - b.y, v.x - b.x); const smashing = !!v.carry; if (this.bonk(b) && !smashing) { ai.mode = 'hunt'; ai.robCd = 6 + Math.random() * 5; } }
       }
+    }
+    if (ai.mode === 'help') {
+      const h = ai.heavy;
+      if (!this.heavies.includes(h) || h.carriers.length >= 2) ai.mode = 'hunt';
+      else { gx = h.x; gy = h.y; if (dist(b, h) < 40) { this.lift(b, h); return; } }
     }
     if (ai.mode === 'crate') {
       if (!this.crates.includes(ai.crate)) ai.mode = 'hunt';
@@ -409,7 +606,7 @@ class Room {
     if (ai.mode === 'hunt') {
       if (!ai.item || !this.buried.includes(ai.item)) {
         // bots only "hear" treasure within their detector range, like players
-        const sense = BOT_SENSE * (b.fx.c > 0 ? 2 : 1);
+        const sense = b.fx.x > 0 ? 0 : BOT_SENSE * (b.fx.c > 0 ? 2 : 1);
         ai.item = null; let bd = sense;
         for (const it of this.buried) {
           if (it.owner === b.id) continue;
@@ -467,6 +664,10 @@ class Room {
       const tg = this.findTarget(d, typeof msg.id === 'number' ? msg.id : null); if (tg) { d.dir = Math.atan2(tg.y - d.y, tg.x - d.x); this.digAt(d, tg); }
     } else if (msg.t === 'bonk') {
       this.bonk(d);
+    } else if (msg.t === 'lift') {
+      const h = this.heavies.find(x => x.id === msg.id); if (h) this.lift(d, h);
+    } else if (msg.t === 'drop') {
+      this.unlift(d);
     } else if (msg.t === 'use') {
       this.usePower(d);
     } else if (msg.t === 'buy') {
@@ -483,6 +684,8 @@ class Room {
     if ((this.crateT -= dt) <= 0) { this.crateT = CRATE_EVERY; if (!this.crates.length) this.spawnCrate(); }
     for (const d of this.diggers) {
       for (const k in d.fx) if ((d.fx[k] -= dt) <= 0) delete d.fx[k];
+      d.tired = Math.max(0, d.tired - dt);
+      if (d.griefT > 0 && (d.griefT -= dt) <= 0) d.grief = 0;
       d.stun = Math.max(0, d.stun - dt); d.immune = Math.max(0, d.immune - dt);
       d.bonkCd = Math.max(0, d.bonkCd - dt); d.swing = Math.max(0, d.swing - dt);
       if (d.isBot) this.botThink(d, dt);
@@ -498,10 +701,17 @@ class Room {
       if (d.stun <= 0) for (let i = this.loose.length - 1; i >= 0; i--) {
         const l = this.loose[i];
         if (l.age < 0.35 || (l.from === d.id && l.age < OWN_DROP_LOCK)) continue;
-        if (Math.hypot(l.x - d.x, l.y - d.y) < 24) { this.loose.splice(i, 1); d.bag.push(l.item); this.ev.push(['pick', l.id, d.id]); }
+        if (Math.hypot(l.x - d.x, l.y - d.y) < (d.fx.m > 0 ? MAGNET_R : 24)) { this.loose.splice(i, 1); d.bag.push(l.item); this.ev.push(['pick', l.id, d.id, d.fx.m > 0 ? 1 : 0]); }
       }
     }
     for (const l of this.loose) l.age += dt;
+    for (const tr of [...this.traps]) {
+      if ((tr.age += dt) > TRAP_LIFE) { this.traps.splice(this.traps.indexOf(tr), 1); this.ev.push(['trapgone', tr.id]); continue; }
+      if (tr.age < 0.6) continue;
+      const v = this.diggers.find(o => o.id !== tr.owner && o.stun <= 0 && Math.hypot(o.x - tr.x, o.y - tr.y) < 16);
+      if (v) this.slip(tr, v);
+    }
+    this.updateHeavies(dt);
     this.flush();
   }
   flush() {
@@ -509,7 +719,8 @@ class Room {
       t: 's', tl: Math.round(this.timeLeft * 10) / 10,
       d: this.diggers.map(d => [d.id, Math.round(d.x), Math.round(d.y), Math.round(d.dir * 100) / 100, d.stun > 0 ? 1 : 0, d.immune > 0 ? 1 : 0,
         d.bag.map(b => b.ti).join(''), d.banked, d.moving ? 1 : 0, d.power || '',
-        Object.keys(d.fx).map(k => k + Math.ceil(d.fx[k])).join('') + (d.padlock ? 'p' : '')]),
+        Object.keys(d.fx).map(k => k + Math.ceil(d.fx[k])).join('') + (d.padlock ? 'p' : '') + (d.lucky > 0 ? 'l' + d.lucky : '') + (d.tired > 0 ? 'z' + Math.ceil(d.tired) : '')]),
+      hv: this.heavies.map(h => [h.id, Math.round(h.x), Math.round(h.y), h.carriers.map(c => c.id).join(','), h.hp, Math.ceil(h.wait)]),
       c: this.crates.map(c => [c.id, Math.round(c.x), Math.round(c.y)]),
       m: this.magpies.map(m => [m.id, Math.round(m.x), Math.round(m.y), Math.round(m.alt), Math.round(m.dir * 100) / 100, m.item ? m.item.ti : -1, m.stun > 0 ? 1 : 0]),
       e: this.ev,
@@ -526,8 +737,58 @@ function newCode() {
   for (;;) { let c = ''; for (let i = 0; i < 4; i++) c += CODE_CHARS[Math.random() * CODE_CHARS.length | 0]; if (!rooms.has(c)) return c; }
 }
 
+// ---------- account API ----------
+const tries = new Map(); // ip -> {n, reset}: slow down password guessing
+function limited(ip) {
+  const now = Date.now(), t = tries.get(ip) || { n: 0, reset: now + 10 * 60 * 1000 };
+  if (now > t.reset) { t.n = 0; t.reset = now + 10 * 60 * 1000; }
+  t.n++; tries.set(ip, t);
+  return t.n > 20;
+}
+function readJson(req) {
+  return new Promise((res, rej) => {
+    let body = '';
+    req.on('data', d => { body += d; if (body.length > 20000) { rej(new UserError('Too much data.')); req.destroy(); } });
+    req.on('end', () => { try { res(body ? JSON.parse(body) : {}); } catch { rej(new UserError('Bad request.')); } });
+    req.on('error', rej);
+  });
+}
+const bearer = req => { const h = req.headers.authorization || ''; return h.startsWith('Bearer ') ? h.slice(7) : null; };
+async function api(req, res) {
+  const send = (code, obj) => { res.writeHead(code, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(obj)); };
+  const path = req.url.split('?')[0];
+  try {
+    if (path === '/api/catalog') return send(200, { catalog: CATALOG, loadout: LOADOUT_CFG, levels: Array.from({ length: MAX_LEVEL }, (_, i) => xpForLevel(i + 1)), persistent: accounts.persistent, dbError });
+    if (req.method !== 'POST') return send(405, { error: 'Use POST.' });
+    const body = await readJson(req);
+    const ip = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
+    if (path === '/api/signup' || path === '/api/login') {
+      if (limited(ip)) return send(429, { error: 'Too many attempts. Wait a few minutes and try again.' });
+      const r = path === '/api/signup' ? await accounts.signup(body.name, body.password, body.import) : await accounts.login(body.name, body.password);
+      return send(200, { token: r.token, profile: accounts.profile(r.acct) });
+    }
+    const token = bearer(req), acct = await accounts.bySession(token);
+    if (!acct) return send(401, { error: 'Please sign in again.' });
+    if (path === '/api/me') return send(200, { profile: accounts.profile(acct) });
+    if (path === '/api/logout') { await accounts.logout(token); return send(200, { ok: true }); }
+    if (path === '/api/buy') { await accounts.buy(acct, String(body.cat), String(body.id)); return send(200, { profile: accounts.profile(acct) }); }
+    if (path === '/api/look') {
+      await accounts.setLook(acct, body.look);
+      for (const r of rooms.values()) for (const c of r.clients.values()) if (c.acct === acct) r.setLook(c.id, acct.data.look);
+      return send(200, { profile: accounts.profile(acct) });
+    }
+    if (path === '/api/loadout') { await accounts.setLoadout(acct, body.k); return send(200, { profile: accounts.profile(acct) }); }
+    return send(404, { error: 'Not found.' });
+  } catch (e) {
+    if (e instanceof UserError) return send(400, { error: e.message });
+    console.error('api', path, e);
+    return send(500, { error: 'Something went wrong on the server. Try again in a moment.' });
+  }
+}
+
 const server = http.createServer((req, res) => {
   if (req.url === '/health') { res.writeHead(200); res.end('ok'); return; }
+  if (req.url.startsWith('/api/')) { api(req, res); return; }
   fs.readFile(INDEX_PATH, (err, buf) => {
     if (err) { res.writeHead(500); res.end('Missing page'); return; }
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
@@ -598,21 +859,29 @@ server.on('upgrade', (req, socket) => {
 
 function onConnection(ws) {
   let room = null, me = null;
-  ws.on('message', raw => {
+  let joining = false;
+  ws.on('message', async raw => {
     let msg; try { msg = JSON.parse(raw); } catch { return; }
     if (!msg || typeof msg.t !== 'string') return;
     if (msg.t === 'join') {
-      if (room) return;
+      if (room || joining) return;
+      joining = true;
+      let acct = null;
+      if (msg.token) {
+        try { acct = await accounts.bySession(msg.token); } catch (e) { console.error('join auth', e.message); }
+        if (!acct) { joining = false; ws.send(JSON.stringify({ t: 'error', msg: 'Your sign-in has expired. Sign in again, or play as a guest.', signout: 1 })); return; }
+      }
+      if (ws.readyState !== 1) return;
       const name = String(msg.name || 'Digger').replace(/[^\p{L}\p{N} _'-]/gu, '').trim().slice(0, 12) || 'Digger';
       let code = String(msg.room || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
       if (code) {
         room = rooms.get(code);
-        if (!room) { ws.send(JSON.stringify({ t: 'error', msg: `No game with code ${code}. Check the code or create a new game.` })); return; }
-        if (room.clients.size >= MAX_PLAYERS) { room = null; ws.send(JSON.stringify({ t: 'error', msg: 'That game is full (8 players).' })); return; }
+        if (!room) { joining = false; ws.send(JSON.stringify({ t: 'error', msg: `No game with code ${code}. Check the code or create a new game.` })); return; }
+        if (room.clients.size >= MAX_PLAYERS) { room = null; joining = false; ws.send(JSON.stringify({ t: 'error', msg: 'That game is full (8 players).' })); return; }
       } else {
         code = newCode(); room = new Room(code); rooms.set(code, room);
       }
-      room.addClient(ws, name, msg.look);
+      room.addClient(ws, name, msg.look, acct);
       me = room.clients.get(ws).id;
       return;
     }
@@ -639,4 +908,11 @@ setInterval(() => {
   for (const r of rooms.values()) r.tick(dt);
 }, TICK_MS);
 
-server.listen(PORT, () => console.log(`Finders Keepers running on port ${PORT}`));
+accounts.init().then(() => {
+  console.log(accounts.persistent ? 'Accounts: saved in the database' : 'Accounts: NOT saved (no DATABASE_URL set) - they vanish on restart');
+}).catch(e => {
+  // bad connection string or database down: keep the game running, warn players accounts won't save
+  dbError = 'The account database could not be reached, so progress is not being saved right now.';
+  console.error('Database error:', e.message);
+  accounts = new Accounts(null);
+}).finally(() => server.listen(PORT, () => console.log(`Finders Keepers running on port ${PORT}`)));

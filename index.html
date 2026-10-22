@@ -30,7 +30,11 @@ canvas{display:block;width:100%;height:100%}
 #signal{position:absolute;top:calc(68px + env(safe-area-inset-top,0px));left:calc(10px + env(safe-area-inset-left,0px));
   width:150px;height:8px;border-radius:6px;background:var(--hud);overflow:hidden;pointer-events:none}
 #signal i{display:block;height:100%;width:0;background:#cfe7a8;transition:width .08s linear}
-#fx{position:absolute;top:calc(82px + env(safe-area-inset-top,0px));left:calc(10px + env(safe-area-inset-left,0px));
+#prices{position:absolute;top:calc(82px + env(safe-area-inset-top,0px));left:calc(10px + env(safe-area-inset-left,0px));
+  background:var(--hud);border-radius:8px;padding:4px 8px;font-size:11px;font-weight:800;pointer-events:none;font-variant-numeric:tabular-nums}
+#prices b{color:var(--gold);font-weight:800}
+#prices:empty{display:none}
+#fx{position:absolute;top:calc(110px + env(safe-area-inset-top,0px));left:calc(10px + env(safe-area-inset-left,0px));
   display:flex;flex-wrap:wrap;gap:4px;max-width:200px;pointer-events:none}
 #fx span{background:var(--hud);border-radius:8px;padding:3px 8px;font-size:11px;font-weight:800;letter-spacing:.04em;font-variant-numeric:tabular-nums;border-left:3px solid var(--c,#8fe6ff)}
 #powBtn{right:calc(30px + env(safe-area-inset-right,0px));bottom:calc(146px + env(safe-area-inset-bottom,0px));width:70px;height:70px;
@@ -59,7 +63,7 @@ canvas{display:block;width:100%;height:100%}
 #bonkBtn{right:calc(132px + env(safe-area-inset-right,0px));bottom:calc(92px + env(safe-area-inset-bottom,0px));width:82px;height:82px;font-size:17px;background:#4b5560;opacity:.8}
 #bonkBtn.ready{background:var(--bonk);opacity:1;box-shadow:0 0 0 6px rgba(255,90,90,.3)}
 .btn.hit{transform:scale(.9)}
-.btn.off{opacity:.3}
+#digBtn.off,#bonkBtn.off{opacity:.3}
 #digBtn.shake{animation:shake .25s}
 @keyframes shake{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
 .overlay{position:absolute;inset:0;display:grid;place-items:center;background:rgba(20,28,12,.74);overflow:auto;
@@ -106,6 +110,30 @@ canvas.stage{width:100%;height:auto;border-radius:12px;display:block;margin-bott
 .wgrid button small.own{color:#3f5a2a}
 .panel button.wardOpen{display:flex;justify-content:center;align-items:center;gap:4px;margin-top:10px}
 #wMsg:empty{display:none}
+.row2{display:flex;gap:8px}
+.panel .row2 button{flex:1;min-width:0;font-size:16px;padding:12px 8px}
+.panel button.link{background:none;color:#8a4a1c;width:auto;padding:4px 0;margin:0;font:800 13px var(--body);text-decoration:underline}
+.profile{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:6px}
+.profile b{font:400 22px var(--display);color:#2f4a1c;display:block;line-height:1.1}
+.profile small{font-weight:800;font-size:12px;color:#6d5f38;letter-spacing:.06em;text-transform:uppercase}
+.xpbar{height:10px;border-radius:6px;background:#e3d8b8;overflow:hidden;margin:4px 0 2px}
+.xpbar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#6aa84f,#9fd36a);transition:width .6s ease}
+.warn{background:#fbe3d6;color:#8a2a14;border-radius:10px;padding:8px 10px;font-size:13px;font-weight:800;margin-bottom:10px}
+.lvlTag{font-size:10px;font-weight:800;letter-spacing:.06em;background:#3f5a2a;color:var(--paper);border-radius:6px;padding:1px 5px;margin-left:6px}
+.lvlTag.guest{background:#b8ab88}
+#reward{background:#efe6cc;border-radius:12px;padding:10px 12px;margin:0 0 12px}
+#reward:empty{display:none}
+#reward .gain{display:flex;gap:14px;font:400 18px var(--display);color:#8a4a1c}
+#reward .gain span{display:inline-flex;align-items:center;gap:5px}
+#reward .up{font:400 22px var(--display);color:#2f4a1c;margin:6px 0 2px;animation:pop .5s ease}
+#reward .unl{font-size:12px;color:#3f5a2a;font-weight:800;line-height:1.5}
+@keyframes pop{0%{transform:scale(.6);opacity:0}70%{transform:scale(1.1)}100%{transform:scale(1);opacity:1}}
+.lgrid{grid-template-columns:1fr;max-height:46vh}
+.panel .lgrid button{align-items:flex-start}
+.lgrid button span b{display:block;font-size:14px}
+.lgrid button span em{display:block;font-style:normal;font-weight:600;font-size:11px;color:#6d5f38;line-height:1.3}
+.panel .wgrid button.locked{opacity:.55}
+.panel button.loadOpen{margin-top:10px}
 button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 @media (prefers-reduced-motion: reduce){.btn{transition:none}#digBtn.shake{animation:none}#powBtn{animation:none}}
 </style>
@@ -119,6 +147,7 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
     <div class="card" id="timer"><small>Closes in</small><b id="timeN">3:00</b></div>
   </div>
   <div id="signal" aria-hidden="true"><i id="sigBar"></i></div>
+  <div id="prices" aria-label="Museum shop prices"></div>
   <div id="fx" aria-live="polite"></div>
   <div class="topright">
     <button id="mute" aria-label="Toggle sound">SND</button>
@@ -129,18 +158,31 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
   <button id="powBtn" class="btn" aria-label="Use powerup" hidden></button>
   <div id="shop" hidden>
     <h3>Museum shop <small id="shopPts">0 pts</small></h3>
-    <button id="buy-p"><div>Padlock<span>Blocks the next bonk</span></div><b>40</b></button>
-    <button id="buy-s"><div>Scarecrow<span>No magpies for 30s</span></div><b>60</b></button>
-    <button id="buy-d"><div>Decoy<span>Fake gold that's junk</span></div><b>80</b></button>
+    <button id="buy-p"><div>Padlock<span>Blocks a bonk while you carry finds</span></div><b>100</b></button>
+    <button id="buy-s"><div>Scarecrow<span>No magpies for 30s</span></div><b>150</b></button>
+    <button id="buy-d"><div>Decoy<span>Fake gold that's junk</span></div><b>200</b></button>
   </div>
 
   <div id="home" class="overlay">
     <div class="panel">
       <h1>Finders Keepers</h1>
       <span class="tag">Online · up to 8 diggers</span>
-      <p>Follow the beep, dig it up and bank it at the Museum before it closes. Bonk your mates to steal their finds.</p>
-      <label for="nameIn">Your name</label>
-      <input id="nameIn" maxlength="12" autocomplete="nickname" placeholder="e.g. Michael">
+      <div id="dbWarn" class="warn" hidden></div>
+      <div id="authOut">
+        <p>Sign in to earn XP, level up and keep your coins and outfits on any phone.</p>
+        <label for="nameIn">Name</label>
+        <input id="nameIn" maxlength="12" autocomplete="username" placeholder="e.g. Michael">
+        <label for="passIn">Password</label>
+        <input id="passIn" type="password" maxlength="72" autocomplete="current-password" placeholder="6 or more characters">
+        <div class="row2"><button id="loginBtn" class="alt">Sign in</button><button id="signupBtn" class="alt">New account</button></div>
+        <p class="note">Or play below as a guest. Guests don't earn coins or XP.</p>
+      </div>
+      <div id="authIn" hidden>
+        <div class="profile"><div><b id="pName">Michael</b><small>Level <span class="lvlN">1</span></small></div><span class="coins"><i></i><b class="coinN">0</b></span></div>
+        <div class="xpbar"><i class="xpFill"></i></div>
+        <div class="row2" style="justify-content:space-between;align-items:center"><span class="note xpText">0 / 300 XP</span><button id="logoutBtn" class="link">Sign out</button></div>
+      </div>
+      <p class="err" id="authErr"></p>
       <button id="createBtn">Create game</button>
       <div class="or">OR JOIN A MATE</div>
       <div class="row">
@@ -148,7 +190,7 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
       </div>
       <button id="joinBtn" class="alt">Join game</button>
       <p class="err" id="homeErr"></p>
-      <button class="ghost wardOpen">Wardrobe &middot; <span class="coinDot"></span><span class="coinN">0</span></button>
+      <button class="ghost wardOpen">Wardrobe</button>
     </div>
   </div>
 
@@ -161,7 +203,7 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
       <label>Diggers here</label>
       <ul class="plist" id="lobbyList"></ul>
       <p class="note">Bots fill any empty spots up to 6 diggers.</p>
-      <button class="ghost wardOpen">Wardrobe &middot; <span class="coinDot"></span><span class="coinN">0</span></button>
+      <div class="row2"><button class="ghost wardOpen">Wardrobe</button><button class="ghost loadOpen">Start with: <span class="loadN">none</span></button></div>
       <button id="startBtn">Start round</button>
       <p class="note" id="waitNote" hidden>Waiting for the host to start&hellip;</p>
     </div>
@@ -172,23 +214,35 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
       <span class="tag">The Museum is closed</span>
       <h2 id="endTitle">You win</h2>
       <canvas id="flour" class="stage" width="600" height="220" aria-hidden="true"></canvas>
+      <div id="reward" aria-live="polite"></div>
       <ul class="plist" id="endList"></ul>
       <p id="endNote"></p>
       <button id="againBtn">Play again</button>
       <p class="note" id="againNote" hidden>Waiting for the host to start the next round&hellip;</p>
-      <button class="ghost wardOpen">Wardrobe &middot; <span class="coinDot"></span><span class="coinN">0</span></button>
+      <div class="row2"><button class="ghost wardOpen">Wardrobe</button><button class="ghost loadOpen">Start with: <span class="loadN">none</span></button></div>
     </div>
   </div>
 
   <div id="wardrobe" class="overlay" hidden>
     <div class="panel wpanel">
-      <div class="whead"><h2>Wardrobe</h2><span class="coins"><i></i><b id="wCoins">0</b></span></div>
+      <div class="whead"><h2>Wardrobe</h2><span class="coins"><i></i><b class="coinN">0</b></span></div>
+      <p class="note" id="wLevel"></p>
       <canvas id="wPrev" class="stage" width="640" height="320" aria-hidden="true"></canvas>
       <div class="wtabs" id="wTabs" role="tablist"></div>
       <div class="wgrid" id="wGrid"></div>
       <p class="note" id="wMsg"></p>
       <button id="wBuy" hidden>Buy</button>
       <button id="wDone" class="alt">Done</button>
+    </div>
+  </div>
+
+  <div id="loadout" class="overlay" hidden>
+    <div class="panel wpanel">
+      <div class="whead"><h2>Start with</h2><span class="coins"><i></i><b class="coinN">0</b></span></div>
+      <p class="note">Begin each round holding one powerup. It's paid from your coins as the round starts.</p>
+      <div class="wgrid lgrid" id="lGrid"></div>
+      <p class="note" id="lMsg"></p>
+      <button id="lDone" class="alt">Done</button>
     </div>
   </div>
 </div>
@@ -201,8 +255,9 @@ const cv = $('c'), ctx = cv.getContext('2d');
 // ---------- state from server ----------
 let TYPES = [], WORLD = 1800, MUSEUM = {x: 900, y: 880, w: 220, h: 150}, ROUND = 180, DUSK = 30;
 let ws = null, myId = null, hostId = null, roomCode = null, roomState = 'lobby', inGame = false;
-let buried = new Map(), holes = [], loose = new Map(), diggers = new Map(), magpies = new Map(), crates = new Map(), POWERS = {};
-const BOX = 4, POW_COL = {c: '#8fe6ff', t: '#ffb347', w: '#7ee07e', p: '#d9d9d9', s: '#f2d16b', d: '#ff8ad8'};
+let buried = new Map(), holes = [], loose = new Map(), diggers = new Map(), magpies = new Map(), crates = new Map(), heavies = new Map(), trails = [], POWERS = {};
+const BOX = 4, POW_COL = {c: '#8fe6ff', t: '#ffb347', w: '#7ee07e', p: '#d9d9d9', s: '#f2d16b', d: '#ff8ad8', m: '#7fb3ff', l: '#5fd35f', r: '#e8c47a', b: '#ffe14d', k: '#9acd32', g: '#ff9f43', q: '#ff5e5e', x: '#9acd32', z: '#ff7a6b'};
+let traps = new Map(), effects = [], flies = [];
 let rings = [], floats = [], pops = [], dirt = [];
 let t = 0, timeLeft = 180, pulsePhase = 0, signal = 0, target = null, muted = false, me = null, lastSend = 0, sentX = 0, sentY = 0, sentDir = 0;
 
@@ -262,38 +317,114 @@ const near = (x, y) => me ? Math.max(0, 1 - Math.hypot(x-me.x, y-me.y)/500) : 0;
 const chime = (v = 1) => [660, 880, 1320].forEach((f,i) => setTimeout(() => beep(f, .25, 'triangle', .1*v), i*90));
 const thunk = (v = 1) => beep(110 + Math.random()*30, .08, 'square', .05*v);
 const thwack = (v = 1) => { beep(90, .18, 'sawtooth', .14*v); beep(1400, .05, 'square', .05*v); };
-const caw = (v = 1) => { beep(900, .09, 'sawtooth', .06*v); setTimeout(() => beep(720, .13, 'sawtooth', .06*v), 110); };
+// filtered noise: magpie chatter and wing flaps
+let noiseBuf = null;
+function noise(dur, freq, q, vol, type = 'bandpass'){
+  if (!ac || muted || vol < .004) return;
+  if (!noiseBuf){ noiseBuf = ac.createBuffer(1, ac.sampleRate*.5, ac.sampleRate); const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random()*2 - 1; }
+  const src = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
+  src.buffer = noiseBuf; f.type = type; f.frequency.value = freq; f.Q.value = q;
+  g.gain.setValueAtTime(vol, ac.currentTime); g.gain.exponentialRampToValueAtTime(.0001, ac.currentTime + dur);
+  src.connect(f).connect(g).connect(ac.destination); src.start(); src.stop(ac.currentTime + dur);
+}
+// magpie "chak-chak-chak" rattle
+const caw = (v = 1) => { for (let i = 0; i < 5; i++) setTimeout(() => { noise(.06, 2400 + Math.random()*500, 6, .5*v); beep(1250 + Math.random()*150, .04, 'square', .03*v); }, i*75); };
+const flap = (v = 1) => noise(.09, 420, 1.2, .35*v, 'lowpass');
 
-// ---------- wardrobe: coins and cosmetics, saved on this phone ----------
-const CAT = {
-  hat:    {label: 'Hats',     items: [['none','No hat',0],['cap','Flat cap',0],['bucket','Bucket hat',50],['beanie','Bobble beanie',50],['hard','Hard hat',100],['pirate','Pirate hat',200],['crown','Crown',500]]},
-  jacket: {label: 'Jacket',   items: [['auto','Team colour',0],['red','Red',30],['yellow','Yellow',30],['pink','Pink',30],['orange','Orange',30],['purple','Purple',30],['sky','Sky blue',30],['black','Black',60],['white','White',60],['camo','Camo',120]]},
-  boots:  {label: 'Wellies',  items: [['green','Green',0],['yellow','Yellow',30],['red','Red',30],['pink','Pink',30],['blue','Blue',30],['gold','Gold',150]]},
-  det:    {label: 'Detector', items: [['classic','Classic',0],['retro','Retro wood',100],['neon','Neon',150],['gold','Gold',300]]},
-  spade:  {label: 'Spade',    items: [['old','Old spade',0],['steel','Shiny steel',80],['gold','Golden',250]]},
-  win:    {label: 'Victory',  items: [['confetti','Confetti',0],['fireworks','Fireworks',100],['coins','Coin shower',150],['fanfare','Fanfare',200]]},
-};
-const JACKET_HEX = {red:'#c0392b', yellow:'#e2b822', pink:'#e84393', orange:'#e67e22', purple:'#8e44ad', sky:'#3fa7d6', black:'#2b2b2b', white:'#ecebe4', camo:'#5d6b3a'};
+// ---------- account, wardrobe and loadout (saved on the server) ----------
+const JACKET_HEX = {red:'#c0392b', yellow:'#e2b822', pink:'#e84393', orange:'#e67e22', purple:'#8e44ad', sky:'#3fa7d6', black:'#2b2b2b', white:'#ecebe4', camo:'#5d6b3a', hivis:'#cde62a', stripes:'#1f3b73', tartan:'#a3262a'};
 const BOOT_HEX = {green:'#2f4a22', yellow:'#e2b822', red:'#b8323a', pink:'#e84393', blue:'#2d5f9e', gold:'#f2c230'};
 const DET = {classic: {shaft:'#2b2b2b', fill:'#1f1f1f', stroke:'#e0742e'}, retro: {shaft:'#7a5230', fill:'#5a3a1c', stroke:'#c9a46a'},
   neon: {shaft:'#222', fill:'#0d1a12', stroke:'#39ff88', glow: 1}, gold: {shaft:'#8a6a2a', fill:'#c9a227', stroke:'#fff1a8'}};
 const SPADE = {old: {handle:'#8a6a44', blade:'#9aa4ad'}, steel: {handle:'#3a3a3a', blade:'#eef4f8'}, gold: {handle:'#6b4a2a', blade:'#f2c230'}};
-const WKEY = 'fk-wardrobe', START_COINS = 50;
-let ward = {coins: START_COINS, owned: [], look: {}};
-try { const w = JSON.parse(localStorage.getItem(WKEY)); if (w && typeof w.coins === 'number') ward = {coins: w.coins, owned: Array.isArray(w.owned) ? w.owned : [], look: w.look || {}}; } catch (_) {}
-const saveWard = () => { try { localStorage.setItem(WKEY, JSON.stringify(ward)); } catch (_) {} };
-const itemOf = (cat, id) => CAT[cat].items.find(i => i[0] === id);
-const owns = (cat, id) => { const it = itemOf(cat, id); return !!it && (it[2] === 0 || ward.owned.includes(cat + ':' + id)); };
-function myLook(){ const l = {}; for (const k in CAT){ const v = ward.look[k]; l[k] = v && owns(k, v) ? v : CAT[k].items[0][0]; } return l; }
-function updateCoinLabels(){ document.querySelectorAll('.coinN').forEach(el => el.textContent = ward.coins); $('wCoins').textContent = ward.coins; }
+const POW_INFO = {
+  c: ['Pro coil', 'Detector reaches twice as far'], t: ['Turbo spade', 'Every dig counts double'], w: ['Wellies', 'Faster, and walk over holes'],
+  p: ['Padlock', 'Blocks a bonk while you carry finds'], s: ['Scarecrow', 'Magpies leave you alone'], d: ['Decoy', 'Plants fake gold that is junk'],
+  m: ['Magnet', 'Pulls in dropped finds and scrap'], l: ['Lucky charm', 'Next 3 finds upgraded a tier'], r: ['Treasure map', 'Marks the best finds'],
+  b: ['Banana peel', 'Trap: whoever slips drops their best find'], k: ['Stink bomb', "Scrambles nearby detectors"], g: ['Sticky glove', 'Next bonk steals into your bag'],
+  q: ['Big bonk', 'Shockwave: everyone around you drops a find']};
+let CAT = null, LOADOUT_CFG = {}, LEVELS = [], token = null, profile = null;
+try { token = localStorage.getItem('fk-token'); } catch (_) {}
+const store = (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (_) {} };
+async function api(path, body){
+  const r = await fetch(path, body === undefined ? {headers: token ? {Authorization: 'Bearer ' + token} : {}} :
+    {method: 'POST', headers: {'Content-Type': 'application/json', ...(token ? {Authorization: 'Bearer ' + token} : {})}, body: JSON.stringify(body)});
+  let j = {}; try { j = await r.json(); } catch (_) {}
+  if (r.status === 401 && token){ setProfile(null); token = null; store('fk-token', null); }
+  if (!r.ok) throw new Error(j.error || 'Could not reach the server. Try again.');
+  return j;
+}
+// what this phone saved before accounts existed: brought across when you make an account
+let legacy = null;
+try { const w = JSON.parse(localStorage.getItem('fk-wardrobe')); if (w && typeof w.coins === 'number') legacy = w; } catch (_) {}
+let guestLook = {};
+try { guestLook = JSON.parse(localStorage.getItem('fk-guest-look')) || {}; } catch (_) {}
 
-let wTab = 'hat', trying = myLook(), wStage = null;
+const itemOf = (cat, id) => CAT && CAT[cat] && CAT[cat].items.find(i => i[0] === id);
+const isFree = (cat, id) => { const it = itemOf(cat, id); return !!it && it[2] === 0; };
+const owns = (cat, id) => isFree(cat, id) || (!!profile && profile.owned.includes(cat + ':' + id));
+const myLevel = () => profile ? profile.level : 0;
+function myLook(){
+  if (profile) return profile.look;
+  const l = {}; if (CAT) for (const k in CAT){ const v = guestLook[k]; l[k] = v && isFree(k, v) ? v : CAT[k].items[0][0]; } return l;
+}
+const powName = k => (POWERS[k] && POWERS[k].name) || (POW_INFO[k] || [k])[0];
+function setProfile(p){
+  profile = p;
+  $('authOut').hidden = !!p; $('authIn').hidden = !p;
+  if (p){
+    $('pName').textContent = p.name;
+    const span = (p.nextXp || p.xp + 1) - p.levelXp, into = p.xp - p.levelXp;
+    document.querySelectorAll('.xpFill').forEach(el => el.style.width = (p.nextXp ? Math.min(100, into/span*100) : 100) + '%');
+    document.querySelectorAll('.xpText').forEach(el => el.textContent = p.nextXp ? `${into} / ${span} XP to level ${p.level + 1}` : 'Max level');
+  }
+  document.querySelectorAll('.lvlN').forEach(el => el.textContent = p ? p.level : '-');
+  document.querySelectorAll('.coinN').forEach(el => el.textContent = p ? p.coins : 0);
+  const lk = p && p.loadout, cfg = lk && LOADOUT_CFG[lk];
+  document.querySelectorAll('.loadN').forEach(el => el.textContent = !p ? 'sign in' : lk ? `${powName(lk)}${cfg ? ' (' + cfg[1] + ')' : ''}` : 'none');
+}
+async function boot(){
+  try {
+    const c = await api('/api/catalog');
+    CAT = c.catalog; LOADOUT_CFG = c.loadout; LEVELS = c.levels;
+    if (!c.persistent){ $('dbWarn').hidden = false; $('dbWarn').textContent = c.dbError || "Accounts aren't being saved on this server yet (no database connected)."; }
+  } catch (_) {}
+  if (token){ try { setProfile((await api('/api/me', {})).profile); } catch (_) {} }
+  else setProfile(null);
+  if (!wStage) trying = myLook();
+}
+boot();
+
+async function auth(kind){
+  const name = $('nameIn').value.trim(), password = $('passIn').value;
+  $('authErr').textContent = '';
+  if (!name || !password){ $('authErr').textContent = 'Enter a name and password.'; return; }
+  $('loginBtn').disabled = $('signupBtn').disabled = true;
+  try {
+    const body = {name, password}; if (kind === 'signup' && legacy) body.import = legacy;
+    const r = await api('/api/' + kind, body);
+    token = r.token; store('fk-token', token); store('fk-name', name);
+    if (kind === 'signup' && legacy){ store('fk-wardrobe', null); legacy = null; }
+    $('passIn').value = '';
+    setProfile(r.profile); chime();
+  } catch (e) { $('authErr').textContent = e.message; }
+  $('loginBtn').disabled = $('signupBtn').disabled = false;
+}
+$('loginBtn').addEventListener('click', () => { unlockAudio(); auth('login'); });
+$('signupBtn').addEventListener('click', () => { unlockAudio(); auth('signup'); });
+$('passIn').addEventListener('keydown', e => { if (e.key === 'Enter') auth('login'); });
+$('logoutBtn').addEventListener('click', async () => { try { await api('/api/logout', {}); } catch (_) {} token = null; store('fk-token', null); setProfile(null); });
+
+// ----- wardrobe -----
+let wTab = 'hat', trying = {}, wStage = null;
 function openWardrobe(){
-  trying = myLook(); wStage = makeStage(trying.win); wStage.showFx = wTab === 'win';
+  if (!CAT) return;
+  trying = {...myLook()}; wStage = makeStage(trying.win); wStage.showFx = wTab === 'win';
   renderWardrobe(); $('wardrobe').hidden = false;
 }
 function renderWardrobe(){
-  updateCoinLabels();
+  setProfile(profile);
+  $('wLevel').textContent = profile ? `Level ${profile.level}. Higher levels unlock more.` : 'Playing as a guest: sign in to buy and keep items.';
   $('wTabs').innerHTML = '';
   for (const k in CAT){
     const b = document.createElement('button'); b.textContent = CAT[k].label; b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', k === wTab);
@@ -301,52 +432,89 @@ function renderWardrobe(){
     $('wTabs').append(b);
   }
   $('wGrid').innerHTML = '';
-  const worn = myLook();
-  for (const [id, name, price] of CAT[wTab].items){
+  const worn = myLook(), lvl = myLevel();
+  for (const [id, name, price, need] of CAT[wTab].items){
     const b = document.createElement('button'); if (trying[wTab] === id) b.className = 'sel';
+    const locked = !owns(wTab, id) && lvl < need;
+    if (locked) b.classList.add('locked');
     if (wTab === 'jacket' || wTab === 'boots'){ const i = document.createElement('i'); i.style.background = wTab === 'boots' ? BOOT_HEX[id] : id === 'auto' ? 'conic-gradient(#2d5f9e 0 25%,#d0473a 0 50%,#17a589 0 75%,#e67e22 0)' : JACKET_HEX[id]; b.append(i); }
     const sp = document.createElement('span'); sp.textContent = name; b.append(sp);
     const sm = document.createElement('small');
     if (worn[wTab] === id){ sm.textContent = 'WEARING'; sm.className = 'own'; }
     else if (owns(wTab, id)){ sm.textContent = 'OWNED'; sm.className = 'own'; }
+    else if (locked) sm.textContent = 'LVL ' + need;
     else sm.textContent = price + ' COINS';
     b.append(sm);
     b.addEventListener('click', () => tryOn(wTab, id));
     $('wGrid').append(b);
   }
-  const [id, name, price] = itemOf(wTab, trying[wTab]);
-  if (owns(wTab, id)){ $('wBuy').hidden = true; $('wMsg').textContent = ''; }
-  else {
-    $('wBuy').hidden = false; $('wBuy').textContent = `Buy ${name} for ${price}`;
-    $('wBuy').disabled = ward.coins < price;
-    $('wMsg').textContent = ward.coins < price ? `You need ${price - ward.coins} more coins. Earn them by banking finds.` : '';
-  }
+  const [id, name, price, need] = itemOf(wTab, trying[wTab]);
+  $('wBuy').hidden = owns(wTab, id);
+  if (!owns(wTab, id)){
+    $('wBuy').textContent = `Buy ${name} for ${price}`;
+    const why = !profile ? 'Sign in on the start screen to buy items.' : lvl < need ? `Reach level ${need} to unlock ${name} (you're level ${lvl}).` : profile.coins < price ? `You need ${price - profile.coins} more coins. Earn them by banking finds.` : '';
+    $('wBuy').disabled = !!why; $('wMsg').textContent = why;
+  } else $('wMsg').textContent = '';
 }
-function equip(cat, id){ ward.look[cat] = id; saveWard(); if (ws && ws.readyState === 1) send({t: 'look', look: myLook()}); }
+async function equip(){
+  if (profile){ try { setProfile((await api('/api/look', {look: trying})).profile); } catch (e) { $('wMsg').textContent = e.message; } }
+  else { guestLook = myLookFrom(trying); store('fk-guest-look', JSON.stringify(guestLook)); if (ws && ws.readyState === 1) send({t: 'look', look: guestLook}); }
+}
+const myLookFrom = l => { const o = {}; for (const k in CAT) o[k] = owns(k, l[k]) ? l[k] : myLook()[k]; return o; };
 function tryOn(cat, id){
   trying[cat] = id;
   if (cat === 'win' && wStage){ wStage = makeStage(id); wStage.showFx = true; }
-  if (owns(cat, id)) equip(cat, id);
+  if (owns(cat, id)) equip().then(renderWardrobe);
   beep(660, .05, 'triangle', .05);
   renderWardrobe();
 }
-$('wBuy').addEventListener('click', () => {
-  const [id, , price] = itemOf(wTab, trying[wTab]);
-  if (owns(wTab, id) || ward.coins < price) return;
-  ward.coins -= price; ward.owned.push(wTab + ':' + id); equip(wTab, id);
-  [988, 1319, 1568].forEach((f, i) => setTimeout(() => beep(f, .12, 'triangle', .08), i*70));
+$('wBuy').addEventListener('click', async () => {
+  const [id] = itemOf(wTab, trying[wTab]);
+  $('wBuy').disabled = true;
+  try {
+    setProfile((await api('/api/buy', {cat: wTab, id})).profile);
+    [988, 1319, 1568].forEach((f, i) => setTimeout(() => beep(f, .12, 'triangle', .08), i*70));
+  } catch (e) { $('wMsg').textContent = e.message; }
   renderWardrobe();
 });
-$('wDone').addEventListener('click', () => { $('wardrobe').hidden = true; updateCoinLabels(); });
+$('wDone').addEventListener('click', () => { $('wardrobe').hidden = true; });
 document.querySelectorAll('.wardOpen').forEach(b => b.addEventListener('click', () => { unlockAudio(); openWardrobe(); }));
-updateCoinLabels();
+
+// ----- starting powerup -----
+function renderLoadout(){
+  setProfile(profile);
+  const g = $('lGrid'); g.innerHTML = '';
+  const add = (k, title, desc, tag, locked) => {
+    const b = document.createElement('button');
+    if ((profile && profile.loadout || null) === k) b.className = 'sel';
+    if (locked) b.classList.add('locked');
+    const sp = document.createElement('span'); const tb = document.createElement('b'); tb.textContent = title; const em = document.createElement('em'); em.textContent = desc; sp.append(tb, em); b.append(sp);
+    const sm = document.createElement('small'); sm.textContent = tag; if (!locked && k) sm.className = ''; b.append(sm);
+    b.addEventListener('click', async () => {
+      if (!profile){ $('lMsg').textContent = 'Sign in on the start screen to use starting powerups.'; return; }
+      if (locked){ $('lMsg').textContent = `Reach level ${LOADOUT_CFG[k][0]} to start with ${title}.`; return; }
+      try { setProfile((await api('/api/loadout', {k})).profile); $('lMsg').textContent = ''; beep(660, .05, 'triangle', .05); } catch (e) { $('lMsg').textContent = e.message; }
+      renderLoadout();
+    });
+    g.append(b);
+  };
+  add(null, 'Nothing', 'Save your coins', 'FREE', false);
+  for (const k of Object.keys(LOADOUT_CFG).sort((a, b) => LOADOUT_CFG[a][0] - LOADOUT_CFG[b][0])){
+    const [need, cost] = LOADOUT_CFG[k], locked = myLevel() < need;
+    add(k, POW_INFO[k][0], POW_INFO[k][1], locked ? 'LVL ' + need : cost + ' COINS', locked);
+  }
+  if (profile && profile.loadout && profile.coins < LOADOUT_CFG[profile.loadout][1]) $('lMsg').textContent = "You can't afford this right now, so you'll start without it.";
+}
+document.querySelectorAll('.loadOpen').forEach(b => b.addEventListener('click', () => { unlockAudio(); renderLoadout(); $('lMsg').textContent = $('lMsg').textContent || ''; $('loadout').hidden = false; }));
+$('lDone').addEventListener('click', () => { $('loadout').hidden = true; });
 
 // ---------- screens ----------
-function show(id){ for (const s of ['home','lobby','end','wardrobe']) $(s).hidden = s !== id; }
+function show(id){ for (const s of ['home','lobby','end','wardrobe','loadout']) $(s).hidden = s !== id; }
 const params = new URLSearchParams(location.search);
 try { $('nameIn').value = localStorage.getItem('fk-name') || ''; } catch (_) {}
 if (params.get('room')){ $('codeIn').value = params.get('room').toUpperCase().slice(0, 4); $('joinBtn').textContent = `Join game ${$('codeIn').value}`; }
 function getName(){
+  if (profile) return profile.name;
   const n = $('nameIn').value.trim().slice(0, 12);
   if (!n){ $('homeErr').textContent = 'Pop your name in first.'; $('nameIn').focus(); return null; }
   try { localStorage.setItem('fk-name', n); } catch (_) {}
@@ -376,6 +544,7 @@ function renderLobby(players){
     const li = document.createElement('li');
     const dot = document.createElement('i'); dot.style.background = p.col; li.append(dot);
     li.append(document.createTextNode(p.name + (p.id === myId ? ' (you)' : '')));
+    const lv = document.createElement('span'); lv.className = 'lvlTag' + (p.guest ? ' guest' : ''); lv.textContent = p.guest ? 'GUEST' : 'LV ' + p.lvl; li.append(lv);
     if (p.id === hostId){ const em = document.createElement('em'); em.textContent = 'host'; li.append(em); }
     $('lobbyList').append(li);
   }
@@ -392,7 +561,7 @@ function connect(name, code){
   let opened = false;
   const slow = setTimeout(() => { if (!opened) $('homeErr').textContent = 'Waking the server up. This can take up to a minute the first time…'; }, 4000);
   ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host);
-  ws.onopen = () => { opened = true; clearTimeout(slow); send({t: 'join', name, room: code, look: myLook()}); };
+  ws.onopen = () => { opened = true; clearTimeout(slow); send({t: 'join', name, room: code, look: myLook(), token: profile ? token : undefined}); };
   ws.onmessage = e => { let m; try { m = JSON.parse(e.data); } catch (_) { return; } handle(m); };
   ws.onclose = () => {
     clearTimeout(slow);
@@ -405,7 +574,9 @@ function connect(name, code){
   };
 }
 function handle(m){
-  if (m.t === 'error'){ $('homeErr').textContent = m.msg; $('homeErr').dataset.keep = '1'; ws.close(); return; }
+  if (m.t === 'error'){ if (m.signout){ token = null; store('fk-token', null); setProfile(null); } $('homeErr').textContent = m.msg; $('homeErr').dataset.keep = '1'; ws.close(); return; }
+  if (m.t === 'profile'){ setProfile(m.profile); return; }
+  if (m.t === 'reward'){ showReward(m); return; }
   if (m.t === 'hello'){ myId = m.you; $('homeErr').textContent = ''; return; }
   if (m.t === 'lobby'){
     roomCode = m.code; hostId = m.host; roomState = m.state;
@@ -419,7 +590,11 @@ function handle(m){
   if (m.t === 'end'){ endRound(m); return; }
 }
 function startRound(m){
-  TYPES = m.types; POWERS = m.powers || {}; ROUND = m.round; DUSK = m.dusk; timeLeft = m.tl; crates = new Map(); lockedId = null;
+  TYPES = m.types; POWERS = m.powers || {};
+  $('prices').innerHTML = 'SHOP &middot; ' + ['p', 's', 'd'].filter(k => POWERS[k]).map(k => `${POWERS[k].short.charAt(0) + POWERS[k].short.slice(1).toLowerCase()} <b>${POWERS[k].cost}</b>`).join(' &middot; ');
+  for (const k of ['p', 's', 'd']) if (POWERS[k]) $('buy-' + k).querySelector('b').textContent = POWERS[k].cost;
+  heavies = new Map((m.heavies || []).map(([id, x, y, name, cs, hp, wait]) => [id, {id, x, y, tx: x, ty: y, name, carriers: cs ? cs.split(',').map(Number) : [], hp: hp ?? 8, wait: wait ?? 10}]));
+  trails = []; effects = []; flies = []; traps = new Map((m.traps || []).map(([id, x, y, owner]) => [id, {id, x, y, owner}])); ROUND = m.round; DUSK = m.dusk; timeLeft = m.tl; crates = new Map(); lockedId = null;
   buried = new Map(m.buried.map(([id, x, y, ti, prog, name, owner]) => [id, {id, x, y, ti, prog, name, owner}]));
   holes = m.holes.map(([x, y, r]) => ({x, y, r}));
   loose = new Map(m.loose.map(([id, x, y, ti, name]) => [id, {id, x, y, fx: x, fy: y, ti, name, age: 1}]));
@@ -430,7 +605,7 @@ function startRound(m){
   update.lastTl = undefined; inGame = true; show(null); chime();
 }
 function addDigger(d){
-  diggers.set(d.id, {id: d.id, name: d.name, col: d.col, bot: d.bot, look: d.look || {}, x: MUSEUM.x, y: MUSEUM.y + 140, tx: null, ty: null, dir: 0, tdir: 0,
+  diggers.set(d.id, {id: d.id, name: d.name, col: d.col, bot: d.bot, look: d.look || {}, lvl: d.lvl || 0, x: MUSEUM.x, y: MUSEUM.y + 140, tx: null, ty: null, dir: 0, tdir: 0,
     stun: 0, immune: 0, bag: [], banked: 0, moving: false, swing: 0, power: '', fx: {}, coil: {x: MUSEUM.x, y: MUSEUM.y + 140}, seen: false});
 }
 function applySnap(m){
@@ -452,6 +627,13 @@ function applySnap(m){
     g.tx = x; g.ty = y; g.talt = alt; g.tdir = dir; g.ti = ti; g.stun = stun;
   }
   for (const id of magpies.keys()) if (!live.has(id)) magpies.delete(id);
+  const liveH = new Set();
+  for (const [id, x, y, cs, hp, wait] of (m.hv || [])){
+    liveH.add(id); let h = heavies.get(id);
+    if (!h){ h = {id, x, y, name: 'Heavy find', carriers: []}; heavies.set(id, h); }
+    h.tx = x; h.ty = y; h.carriers = cs ? cs.split(',').map(Number) : []; h.hp = hp; h.wait = wait;
+  }
+  for (const id of heavies.keys()) if (!liveH.has(id)) heavies.delete(id);
   const liveC = new Set();
   for (const [id, x, y] of (m.c || [])){ liveC.add(id); if (!crates.has(id)) crates.set(id, {id, x, y, age: 1}); }
   for (const id of crates.keys()) if (!liveC.has(id)) crates.delete(id);
@@ -470,8 +652,10 @@ function applyEvent(e){
     } else if (src !== 'shop' && near(d.x, d.y) > .25) floatAt(d.x, d.y - 40, `${d.name}: ${P.name}`, POW_COL[pk], {small: true});
   } else if (k === 'use'){
     const [, id, pk] = e, d = diggers.get(id), P = POWERS[pk]; if (!d || !P) return;
-    if (id === myId){ floatAt(me.x, me.y - 46, pk === 'd' ? 'Decoy planted' : `${P.name} on!`, POW_COL[pk]); beep(520, .18, 'sine', .08); setTimeout(() => beep(1040, .2, 'sine', .07), 90); }
-    else if (pk === 'd' && near(d.x, d.y) > .3) {} // keep decoys secret
+    const USE_TXT = {d: 'Decoy planted', b: 'Banana peel dropped', l: 'Lucky charm: next 3 finds upgraded', r: 'Treasure map: best finds marked', m: 'Magnet on!', g: 'Sticky glove on: next bonk steals'};
+    if (pk === 'k' || pk === 'q') {} // their own events cover these
+    else if (id === myId){ floatAt(me.x, me.y - 46, USE_TXT[pk] || `${P.name} on!`, POW_COL[pk]); beep(520, .18, 'sine', .08); setTimeout(() => beep(1040, .2, 'sine', .07), 90); }
+    else if ((pk === 'd' || pk === 'b') && near(d.x, d.y) > .3) {} // keep traps and decoys secret
     else if (near(d.x, d.y) > .3) floatAt(d.x, d.y - 40, `${d.name}: ${P.name}`, POW_COL[pk], {small: true});
   } else if (k === 'padlock'){
     const [, aid, vid] = e, a = diggers.get(aid), v = diggers.get(vid); if (a) a.swing = .25;
@@ -506,7 +690,8 @@ function applyEvent(e){
   else if (k === 'spawn'){ const [, id, x, y, ti, name, owner] = e; buried.set(id, {id, x, y, ti, prog: 0, name, owner}); }
   else if (k === 'loose'){ const [, id, x, y, fx, fy, ti, name] = e; loose.set(id, {id, x, y, fx, fy, ti, name, age: 0}); }
   else if (k === 'pick'){
-    const [, id, by] = e, l = loose.get(id); loose.delete(id);
+    const [, id, by, mag] = e, l = loose.get(id); loose.delete(id);
+    if (l && mag) flies.push({x: l.x, y: l.y, to: by, ti: l.ti, t: 0});
     if (l && by === myId){ floatAt(me.x, me.y - 40, `Grabbed ${l.name}  +${TYPES[l.ti].v}`, TYPES[l.ti].ring); chime(); }
   } else if (k === 'bank'){
     const [, by, v] = e;
@@ -519,8 +704,14 @@ function applyEvent(e){
     const a = diggers.get(e[1]), v = diggers.get(e[2]); if (a) a.swing = .25;
     if (v) floatAt(v.x, v.y - 34, 'Too soon!', '#ffffff', {small: true});
   } else if (k === 'bonk'){
-    const [, aid, vid, ti, name] = e, a = diggers.get(aid), v = diggers.get(vid); if (!a || !v) return;
+    const [, aid, vid, ti, name, stole] = e, a = diggers.get(aid), v = diggers.get(vid); if (!a || !v) return;
     a.swing = .25; v.stun = 1;
+    if (stole){
+      thwack(aid === myId || vid === myId ? 1 : near(v.x, v.y)); flies.push({x: v.x, y: v.y, to: aid, ti, t: 0});
+      if (vid === myId) floatAt(v.x, v.y - 40, `${a.name}'s sticky glove took your ${name}!`, '#ff8a7a');
+      else if (aid === myId){ floatAt(me.x, me.y - 46, `Sticky glove! Stole ${name}`, '#ff9f43'); chime(); }
+      return;
+    }
     thwack(Math.max(near(a.x, a.y), near(v.x, v.y), aid === myId || vid === myId ? 1 : 0));
     if (vid === myId) floatAt(v.x, v.y - 40, ti >= 0 ? `${a.name} got you! -${name}` : `${a.name} bonked you`, '#ff8a7a');
     else if (aid === myId) floatAt(v.x, v.y - 40, ti >= 0 ? `${v.name} dropped ${name}` : 'BONK', ti >= 0 ? TYPES[ti].ring : '#ffffff');
@@ -539,6 +730,72 @@ function applyEvent(e){
     const x = g ? g.x : a ? a.x : 0, y = g ? g.y : a ? a.y : 0;
     thwack(aid === myId ? 1 : near(x, y)); caw(aid === myId ? .7 : near(x, y)*.7);
     if (ti >= 0 && (aid === myId || near(x, y) > .2)) floatAt(x, y - 40, aid === myId ? `Magpie dropped ${name}!` : `${nameOf(aid)} bonked a magpie`, TYPES[ti].ring, {small: aid !== myId});
+  } else if (k === 'heavy'){
+    const [, id, x, y, name, by] = e;
+    heavies.set(id, {id, x, y, tx: x, ty: y, name, carriers: [], hp: 8, wait: 10});
+    [196, 247, 294, 392].forEach((f, i) => setTimeout(() => beep(f, .3, 'sawtooth', .07), i*120));
+    if (by === myId) floatAt(x, y - 50, `${name}! Needs 2 to carry. 10s!`, '#c9a6ff');
+    else if (me) floatAt(me.x, me.y - 64, `${nameOf(by)} dug up a ${name}! 10s to carry it`, '#c9a6ff');
+  } else if (k === 'lift'){
+    const [, hid, by] = e, h = heavies.get(hid);
+    if (by === myId){ beep(150, .2, 'triangle', .1); if (h && !h.carriers.length) floatAt(me.x, me.y - 46, 'Need a second pair of hands!', '#c9a6ff'); }
+    else if (h && h.carriers.includes(myId)) floatAt(me.x, me.y - 46, `${nameOf(by)} grabbed the other end!`, '#c9a6ff');
+  } else if (k === 'unlift'){
+    const [, hid, by] = e, h = heavies.get(hid);
+    if (by === myId) floatAt(me.x, me.y - 46, 'Let go', '#f4ecd4', {small: true});
+    else if (h && h.carriers.includes(myId)) floatAt(me.x, me.y - 46, `${nameOf(by)} let go`, '#ff8a7a', {small: true});
+  } else if (k === 'hbank'){
+    const [, hid, ids, share, name] = e; const who = String(ids).split(',').map(Number);
+    heavies.delete(hid);
+    if (who.includes(myId)){ floatAt(MUSEUM.x, MUSEUM.y - 90, `${name}! Split +${share} each`, '#c9a6ff', {big: true}); chime(); setTimeout(chime, 220); setTimeout(chime, 440); }
+    else floatAt(MUSEUM.x, MUSEUM.y - 90, `${who.map(nameOf).join(' & ')} banked a ${name}`, '#f4ecd4', {small: true});
+  } else if (k === 'hhit'){
+    const [, hid, by, hp] = e, h = heavies.get(hid); if (!h) return;
+    const mine = h.carriers.includes(myId), vol = mine || by === myId ? 1 : near(h.x, h.y);
+    beep(220 + hp*30, .12, 'square', .08*vol); noise(.1, 3000, 2, .4*vol);
+    for (let i = 0; i < 8; i++) dirt.push({x: h.x, y: h.y, vx: (Math.random() - .5)*220, vy: (Math.random() - .5)*220, t: 0});
+    if (mine && hp > 0) floatAt(h.x, h.y - 40, `${nameOf(by)} is smashing it! ${hp} left`, '#ff8a7a', {small: true});
+  } else if (k === 'hbreak'){
+    const [, hid, by, name] = e, h = heavies.get(hid); heavies.delete(hid);
+    const x = h ? h.x : me ? me.x : 0, y = h ? h.y : me ? me.y : 0;
+    [140, 110, 80].forEach((f, i) => setTimeout(() => { beep(f, .25, 'sawtooth', .12); noise(.25, 1200, .8, .7); }, i*90));
+    for (let i = 0; i < 24; i++) dirt.push({x, y, vx: (Math.random() - .5)*320, vy: (Math.random() - .5)*320, t: 0});
+    if (me) floatAt(x, y - 50, by === myId ? `You smashed the ${name}! Grab the scrap` : `${nameOf(by)} smashed the ${name}!`, '#ff8a7a');
+  } else if (k === 'hgone'){
+    const [, hid, name] = e, h = heavies.get(hid); heavies.delete(hid);
+    if (me) floatAt(h ? h.x : me.x, (h ? h.y : me.y) - 40, `The ${name} sank back into the mud`, '#c9a6ff', {small: true});
+  } else if (k === 'lucky'){
+    const [, id, ti, name, left] = e;
+    if (id === myId){ floatAt(me.x, me.y - 62, `Lucky! It's a ${name}` + (left ? ` (${left} left)` : ''), '#5fd35f'); [1047, 1319, 1568].forEach((f, i) => setTimeout(() => beep(f, .1, 'sine', .07), i*60)); }
+  } else if (k === 'trap'){
+    const [, id, x, y, owner] = e; traps.set(id, {id, x, y, owner});
+  } else if (k === 'trapgone'){ traps.delete(e[1]); }
+  else if (k === 'slip'){
+    const [, tid, vid, ti, name, owner] = e, tr = traps.get(tid), v = diggers.get(vid); traps.delete(tid);
+    const x = tr ? tr.x : v ? v.x : 0, y = tr ? tr.y : v ? v.y : 0, vol = vid === myId || owner === myId ? 1 : near(x, y);
+    // slide whistle down
+    if (ac && !muted && vol > .01){ const o = ac.createOscillator(), g = ac.createGain(); o.type = 'sine'; o.frequency.setValueAtTime(1400, ac.currentTime); o.frequency.exponentialRampToValueAtTime(260, ac.currentTime + .45);
+      g.gain.setValueAtTime(.09*vol, ac.currentTime); g.gain.exponentialRampToValueAtTime(.0001, ac.currentTime + .5); o.connect(g).connect(ac.destination); o.start(); o.stop(ac.currentTime + .5); }
+    if (v && (vid === myId || owner === myId || near(x, y) > .25))
+      floatAt(x, y - 40, vid === myId ? `You slipped on a banana!${ti >= 0 ? ' -' + name : ''}` : owner === myId ? `${v.name} slipped on your banana!` : `${v.name} slipped!`, '#ffe14d', {small: vid !== myId && owner !== myId});
+  } else if (k === 'stink'){
+    const [, by, x, y, ids] = e, hit = String(ids || '').split(',').filter(Boolean).map(Number);
+    effects.push({kind: 'stink', x, y, t: 0, life: 1.4});
+    const vol = by === myId || hit.includes(myId) ? 1 : near(x, y);
+    noise(.5, 180, .7, .9*vol, 'lowpass'); beep(70, .4, 'sawtooth', .07*vol);
+    if (hit.includes(myId)) floatAt(me.x, me.y - 46, `${nameOf(by)} stink-bombed you! Detector scrambled`, '#9acd32');
+    else if (by === myId) floatAt(x, y - 46, hit.length ? `Stink bomb! ${hit.length} scrambled` : 'Stink bomb! Nobody in range', '#9acd32');
+  } else if (k === 'shock'){
+    const [, by, x, y, ids] = e, hit = String(ids || '').split(',').filter(Boolean).map(Number);
+    effects.push({kind: 'shock', x, y, t: 0, life: .6});
+    const a = diggers.get(by); if (a) a.swing = .25;
+    const vol = by === myId || hit.includes(myId) ? 1 : near(x, y);
+    beep(55, .5, 'sawtooth', .16*vol); noise(.35, 300, .6, .9*vol, 'lowpass');
+    for (const id of hit){ const v = diggers.get(id); if (v) v.stun = 1; }
+    if (hit.includes(myId)) floatAt(me.x, me.y - 46, `${nameOf(by)}'s BIG BONK!`, '#ff5e5e');
+    else if (by === myId) floatAt(x, y - 50, hit.length ? `BIG BONK! Hit ${hit.length}` : 'BIG BONK! Nobody in range', '#ff5e5e', {big: hit.length > 0});
+  } else if (k === 'tired'){
+    if (e[1] === myId){ floatAt(me.x, me.y - 46, 'Arm tired! Stop bonking empty pockets', '#ff7a6b'); beep(180, .3, 'triangle', .08); }
   } else if (k === 'join'){ addDigger(e[1]); }
   else if (k === 'look'){ const d = diggers.get(e[1]); if (d){ d.look = e[2] || {}; d.col = e[3]; } }
   else if (k === 'leave'){ diggers.delete(e[1]); }
@@ -547,7 +804,7 @@ function endRound(m){
   inGame = false;
   const lost = me ? bagValue(me) : 0;
   const [wid, wname] = m.rank[0] || [];
-  $('endTitle').textContent = wid === myId ? 'You win!' : `${wname} wins`;
+  $('endTitle').textContent = !m.rank.length || m.rank[0][3] === 0 ? 'Nobody banked a thing' : wid === myId ? 'You win!' : `${wname} wins`;
   $('endList').innerHTML = '';
   for (const [id, name, col, banked, bot] of m.rank){
     const li = document.createElement('li');
@@ -556,18 +813,31 @@ function endRound(m){
     const em = document.createElement('em'); em.textContent = banked; em.style.fontSize = '15px'; em.style.fontWeight = '800'; em.style.color = 'var(--ink)'; li.append(em);
     $('endList').append(li);
   }
-  // coins: 1 per 10 banked, plus a bonus for the top three
-  const place = m.rank.findIndex(r => r[0] === myId);
-  const myBanked = place >= 0 ? m.rank[place][3] : 0;
-  const earned = Math.floor(myBanked/10) + (myBanked > 0 ? [25, 15, 10][place] || 0 : 0);
-  ward.coins += earned; saveWard(); updateCoinLabels();
-  $('endNote').textContent = (lost ? `You were still carrying ${lost} when the doors locked. That’s gone. ` : 'You banked everything before closing. ') + `+${earned} coins.`;
+  $('endNote').textContent = lost ? `You were still carrying ${lost} when the doors locked. That’s gone.` : 'You banked everything before closing.';
+  $('reward').innerHTML = profile ? '<p class="note">Adding up your coins and XP&hellip;</p>' : '<p class="note">Playing as a guest, so nothing was saved. Sign in on the start screen to earn coins and XP.</p>';
   const w = diggers.get(wid);
   endStage = makeStage((w && w.look && w.look.win) || 'confetti', w ? w.look : {}, w ? w.col : '#2d5f9e');
   show('end');
   flourishSound(endStage.kind);
 }
 let endStage = null;
+function showReward(m){
+  const box = $('reward'); box.innerHTML = '';
+  if (m.error){ box.textContent = m.error; return; }
+  setProfile(m.profile);
+  const gain = document.createElement('div'); gain.className = 'gain';
+  gain.innerHTML = `<span><i class="coinDot"></i>+${m.coins} coins</span><span>+${m.xp} XP</span>`;
+  box.append(gain);
+  if (m.after > m.before){
+    const up = document.createElement('div'); up.className = 'up'; up.textContent = `Level up! You're level ${m.after}`; box.append(up);
+    if (m.unlocks.length){ const u = document.createElement('div'); u.className = 'unl';
+      u.textContent = 'Unlocked: ' + m.unlocks.map(x => x.startsWith('Start with: ') ? 'Start with ' + powName(x.slice(12)) : x).join(', '); box.append(u); }
+    [523, 659, 784, 1047, 1319].forEach((f, i) => setTimeout(() => beep(f, .18, 'triangle', .1), 500 + i*90));
+  }
+  const bar = document.createElement('div'); bar.className = 'xpbar'; const fill = document.createElement('i'); fill.className = 'xpFill'; bar.append(fill);
+  const txt = document.createElement('span'); txt.className = 'note xpText';
+  box.append(bar, txt); setProfile(m.profile);
+}
 function flourishSound(kind){
   const seq = {confetti: [[523,0],[659,120],[784,240],[1047,360]], coins: [[1319,0],[1568,80],[1760,160],[2093,240],[2637,320]],
     fanfare: [[392,0],[392,130],[392,260],[523,390],[659,620],[523,780],[784,910]], fireworks: [[90,0],[80,450],[100,900]]}[kind] || [];
@@ -593,7 +863,13 @@ cv.addEventListener('pointerdown', e => {
 });
 cv.addEventListener('pointermove', e => { if (e.pointerId === stick.id){ stick.x = e.clientX; stick.y = e.clientY; } });
 const endStick = e => { if (e.pointerId === stick.id) stick.id = null; };
-cv.addEventListener('pointerup', endStick); cv.addEventListener('pointercancel', endStick);
+cv.addEventListener('pointerup', endStick); cv.addEventListener('pointercancel', endStick); cv.addEventListener('lostpointercapture', endStick);
+// If the app loses focus mid-move (notification, app switch), the finger-up never arrives: let go of everything.
+function releaseAll(){ stick.id = null; for (const k in keys) keys[k] = false; }
+addEventListener('blur', releaseAll); addEventListener('pagehide', releaseAll);
+document.addEventListener('visibilitychange', () => { if (document.hidden) releaseAll(); });
+addEventListener('touchend', e => { if (!e.touches.length) stick.id = null; }, {passive: true});
+addEventListener('touchcancel', e => { if (!e.touches.length) stick.id = null; }, {passive: true});
 const digBtn = $('digBtn'), bonkBtn = $('bonkBtn');
 const press = el => { el.classList.remove('hit'); void el.offsetWidth; el.classList.add('hit'); };
 digBtn.addEventListener('pointerdown', e => { e.preventDefault(); playerDig(); });
@@ -614,15 +890,28 @@ function findTarget(d){
   for (const b of buried.values()){ if (b.owner === myId) continue; const dd = dist(b, d); if (dd < bd){ bd = dd; best = b; } }
   return best;
 }
+// treasure map: the three most valuable real finds (never a decoy)
+function mapPicks(){
+  return [...buried.values()].filter(b => !b.owner && b.ti !== 4).sort((a, b) => (TYPES[b.ti].v - TYPES[a.ti].v) || (Math.hypot(a.x - me.x, a.y - me.y) - Math.hypot(b.x - me.x, b.y - me.y))).slice(0, 3);
+}
+function carrying(){ for (const h of heavies.values()) if (h.carriers.includes(myId)) return h; return null; }
+function liftable(){
+  if (!me || carrying()) return null;
+  for (const h of heavies.values()) if (h.carriers.length < 2 && Math.hypot(h.x - me.x, h.y - me.y) < 40) return h;
+  return null;
+}
 function playerDig(){
   if (!inGame || !me || me.stun) return;
   press(digBtn);
+  if (carrying()){ send({t: 'drop'}); return; }
+  const lh = liftable(); if (lh){ sendPos(true); send({t: 'lift', id: lh.id}); return; }
   if (!target){ digBtn.classList.remove('shake'); void digBtn.offsetWidth; digBtn.classList.add('shake'); return; }
   lockedId = target.id; thunk(); sendPos(true); send({t: 'dig', id: target.id});
 }
 function canBonkSomething(){
   if (!me || inMuseumZone(me.x, me.y, 10)) return false;
   for (const g of magpies.values()) if (!g.stun && g.alt < 30 && Math.hypot(g.x-me.x, g.y-me.y) < 44) return true;
+  for (const h of heavies.values()) if (!h.carriers.includes(myId) && Math.hypot(h.x-me.x, h.y-me.y) < 50) return true;
   for (const o of diggers.values()){
     if (o === me || inMuseumZone(o.x, o.y, 10)) continue;
     const dd = dist(o, me); if (dd > 44) continue;
@@ -632,7 +921,7 @@ function canBonkSomething(){
   return false;
 }
 function playerBonk(){
-  if (!inGame || !me || me.stun) return;
+  if (!inGame || !me || me.stun || me.fx.z || carrying()) return;
   press(bonkBtn); me.swing = .25; sendPos(true); send({t: 'bonk'});
 }
 function sendPos(force){
@@ -659,7 +948,7 @@ function update(dt){
   me.moving = mag > .05 && !me.stun;
   if (me.moving){
     if (mag > 1){ mx /= mag; my /= mag; }
-    const speed = 200 * (1 - Math.min(.45, me.bag.length*.05)) * (me.fx.w ? 1.3 : 1);
+    const hc = carrying(), speed = 200 * (1 - Math.min(.45, me.bag.length*.05)) * (me.fx.w ? 1.3 : 1) * (hc ? (hc.carriers.length === 2 ? .7 : 0) : 1);
     me.x += mx*speed*dt; me.y += my*speed*dt;
     me.x = Math.max(50, Math.min(WORLD-50, me.x)); me.y = Math.max(50, Math.min(WORLD-50, me.y));
     let a = Math.atan2(my, mx) - me.dir; a = Math.atan2(Math.sin(a), Math.cos(a)); me.dir += a*Math.min(1, dt*12);
@@ -685,14 +974,40 @@ function update(dt){
   }
   for (const l of loose.values()) l.age += dt;
   for (const c of crates.values()) c.age += dt;
+  for (const h of heavies.values()){ h.x += (h.tx - h.x)*k; h.y += (h.ty - h.y)*k; }
+  // magpie wing flaps when one is swooping near you
+  for (const g of magpies.values()){
+    const dd = Math.hypot(g.x - me.x, g.y - me.y);
+    if (dd < 320 && !g.stun){ g.flapT = (g.flapT || 0) - dt; if (g.flapT <= 0){ g.flapT = g.alt < 20 ? .16 : .3; flap(Math.max(.15, 1 - dd/320)); } }
+    if (dd < 70 && g.alt < 25 && !g.cawed){ g.cawed = true; caw(.8); }
+  }
+  // pets follow, trails drop behind
+  for (const d of diggers.values()){
+    const L = d.look || {};
+    if (L.pet && L.pet !== 'none' && L.pet !== 'parrot'){
+      if (!d.pet) d.pet = {x: d.x, y: d.y, dir: d.dir};
+      const side = d.id % 2 ? 1 : -1, tx = d.x - Math.cos(d.dir)*30 - Math.sin(d.dir)*12*side, ty = d.y - Math.sin(d.dir)*30 + Math.cos(d.dir)*12*side;
+      const dx = tx - d.pet.x, dy = ty - d.pet.y, dd = Math.hypot(dx, dy);
+      if (dd > 4){ d.pet.x += dx*Math.min(1, dt*5); d.pet.y += dy*Math.min(1, dt*5); d.pet.dir = Math.atan2(dy, dx); d.pet.moving = true; } else d.pet.moving = false;
+    }
+    if (L.trail && L.trail !== 'none' && d.moving){
+      d.trailT = (d.trailT || 0) - dt;
+      if (d.trailT <= 0){ d.trailT = L.trail === 'prints' ? .16 : .07; d.foot = !d.foot; addTrail(trails, L.trail, d.x - Math.cos(d.dir)*8, d.y - Math.sin(d.dir)*8, d.dir, d.foot); }
+    }
+  }
+  for (let i = effects.length - 1; i >= 0; i--) if ((effects[i].t += dt) > effects[i].life) effects.splice(i, 1);
+  for (let i = flies.length - 1; i >= 0; i--) if ((flies[i].t += dt) > .35) flies.splice(i, 1);
+  for (let i = trails.length - 1; i >= 0; i--){ const p = trails[i]; p.life -= dt; p.x += (p.vx || 0)*dt; p.y += (p.vy || 0)*dt; if (p.life <= 0) trails.splice(i, 1); }
+  if (trails.length > 400) trails.splice(0, trails.length - 400);
 
   // detector
   const coil = me.coil;
   const range = me.fx.c ? 420 : 210;
-  let nearB = null, nd = range;
+  let nearB = null, nd = range; // eslint-disable-line prefer-const
   for (const b of buried.values()){ if (b.owner === myId) continue; const dd = Math.hypot(b.x-coil.x, b.y-coil.y); if (dd < nd){ nd = dd; nearB = b; } }
   signal += ((nearB ? 1 - nd/range : 0) - signal) * Math.min(1, dt*10);
   if (inMuseumZone(me.x, me.y, 20) || me.stun) signal = 0;
+  if (me.fx.x){ signal = Math.random()*.25; nearB = null; }
   if (signal > .03 && nearB){
     pulsePhase += dt/(1.1 - signal*.98);
     if (pulsePhase >= 1){
@@ -704,8 +1019,12 @@ function update(dt){
   } else pulsePhase = .8;
   target = me.stun ? null : findTarget(me);
   digBtn.classList.toggle('ready', !!target);
-  bonkBtn.classList.toggle('ready', !me.stun && canBonkSomething());
-  digBtn.classList.toggle('off', !!me.stun); bonkBtn.classList.toggle('off', !!me.stun);
+  const held = carrying(), lh = held ? null : liftable(), lbl = held ? 'DROP' : lh ? 'LIFT' : 'DIG';
+  if (digBtn.textContent !== lbl) digBtn.textContent = lbl;
+  if (held || lh) digBtn.classList.add('ready');
+  const noBonk = !!me.stun || !!held || !!me.fx.z;
+  bonkBtn.classList.toggle('ready', !noBonk && canBonkSomething());
+  digBtn.classList.toggle('off', !!me.stun); bonkBtn.classList.toggle('off', noBonk);
 
   rings = rings.filter(r => (r.t += dt) < .6);
   floats = floats.filter(f => (f.t += dt) < 1.6);
@@ -717,7 +1036,8 @@ function update(dt){
   const P = POWERS[me.power];
   powBtn.hidden = !P;
   if (P && powBtn.dataset.k !== me.power){ powBtn.dataset.k = me.power; powBtn.innerHTML = `${P.short}<small>TAP TO USE</small>`; powBtn.style.background = ''; }
-  const fxHtml = Object.keys(me.fx).filter(k => POWERS[k]).map(k => `<span style="--c:${POW_COL[k]}">${POWERS[k].name}${k === 'p' ? '' : ' ' + me.fx[k] + 's'}</span>`).join('');
+  const FX_LABEL = {z: 'Tired arm', x: 'Stinky! Detector scrambled'};
+  const fxHtml = Object.keys(me.fx).filter(k => POWERS[k] || FX_LABEL[k]).map(k => `<span style="--c:${POW_COL[k]}">${FX_LABEL[k] || POWERS[k].name}${k === 'p' ? '' : k === 'l' ? ' \u00D7' + me.fx[k] : ' ' + me.fx[k] + 's'}</span>`).join('');
   if ($('fx').innerHTML !== fxHtml) $('fx').innerHTML = fxHtml;
   const inShop = inMuseumZone(me.x, me.y, 20);
   $('shop').hidden = !inShop;
@@ -737,7 +1057,7 @@ function update(dt){
   if ((update.boardT = (update.boardT || 0) - dt) <= 0){
     update.boardT = .3;
     const html = [...diggers.values()].sort((a, b) => b.banked - a.banked)
-      .map(d => `<li class="${d === me ? 'me' : ''}"><span><i style="background:${d.col}"></i>${esc(d.name)}</span><span>${d.banked}</span></li>`).join('');
+      .map(d => `<li class="${d === me ? 'me' : ''}"><span><i style="background:${d.col}"></i>${esc(d.name)}${d.lvl ? ' <small style="opacity:.6">' + d.lvl + '</small>' : ''}</span><span>${d.banked}</span></li>`).join('');
     if ($('board').innerHTML !== html) $('board').innerHTML = html;
   }
 }
@@ -789,9 +1109,106 @@ function drawHat(g, hat){
       g.fillStyle = '#7a2a8a'; g.beginPath(); g.arc(2, 0, 4.6, 0, 7); g.fill();
       g.fillStyle = '#d03a3a'; for (let i = 0; i < 8; i++){ const a = i/8*Math.PI*2; g.beginPath(); g.arc(2 + Math.cos(a)*9, Math.sin(a)*9, 1.4, 0, 7); g.fill(); }
       break;
+    case 'party':
+      g.fillStyle = '#e84393'; g.beginPath(); g.arc(2, 0, 7.5, 0, 7); g.fill();
+      g.strokeStyle = '#f2c230'; g.lineWidth = 1.6; for (const r of [5.5, 3]){ g.beginPath(); g.arc(2, 0, r, 0, 7); g.stroke(); }
+      g.fillStyle = '#ffffff'; g.beginPath(); g.arc(2, 0, 1.8, 0, 7); g.fill(); break;
+    case 'cone':
+      g.fillStyle = '#ff7a1a'; g.fillRect(-7, -9, 18, 18);
+      g.beginPath(); g.arc(2, 0, 7, 0, 7); g.fill();
+      g.strokeStyle = '#ffffff'; g.lineWidth = 2; g.beginPath(); g.arc(2, 0, 4.6, 0, 7); g.stroke();
+      g.fillStyle = '#ff9a4a'; g.beginPath(); g.arc(2, 0, 2.2, 0, 7); g.fill(); break;
+    case 'deer':
+      g.fillStyle = '#8b6b4a'; g.beginPath(); g.ellipse(2, 0, 11, 7.5, 0, 0, 7); g.fill();
+      g.strokeStyle = 'rgba(60,40,20,.6)'; g.lineWidth = 1; for (const x of [-4, 0, 4, 8]){ g.beginPath(); g.moveTo(x, -7); g.lineTo(x, 7); g.stroke(); }
+      g.beginPath(); g.moveTo(-8, 0); g.lineTo(12, 0); g.stroke(); break;
+    case 'top':
+      g.fillStyle = '#1d1d1d'; g.beginPath(); g.arc(2, 0, 10, 0, 7); g.fill();
+      g.fillStyle = '#2f2f2f'; g.beginPath(); g.arc(2, 0, 6.5, 0, 7); g.fill();
+      g.strokeStyle = '#8b1e1e'; g.lineWidth = 1.8; g.stroke(); break;
+    case 'cowboy':
+      g.fillStyle = '#8a5a2b'; g.beginPath(); g.ellipse(2, 0, 12.5, 10, 0, 0, 7); g.fill();
+      g.fillStyle = '#a06a34'; g.beginPath(); g.ellipse(2, 0, 6.5, 5.2, 0, 0, 7); g.fill();
+      g.strokeStyle = '#6b4220'; g.lineWidth = 1.2; g.beginPath(); g.moveTo(-3, 0); g.lineTo(7, 0); g.stroke(); break;
+    case 'viking':
+      g.fillStyle = '#efe6cc'; for (const sy of [-1, 1]){ g.beginPath(); g.moveTo(-1, sy*6); g.quadraticCurveTo(-1, sy*15, 8, sy*15); g.quadraticCurveTo(2, sy*11, 4, sy*6); g.fill(); }
+      g.fillStyle = '#9aa4ad'; g.beginPath(); g.arc(2, 0, 8, 0, 7); g.fill();
+      g.fillStyle = '#6f7880'; g.fillRect(-6, -1.2, 16, 2.4); g.fillRect(1, -8, 2.4, 16); break;
+    case 'halo':
+      g.fillStyle = '#e6c25c'; g.beginPath(); g.arc(1, 0, 6.5, Math.PI*.5, Math.PI*1.5); g.fill();
+      g.shadowColor = '#fff3a8'; g.shadowBlur = 10; g.strokeStyle = '#ffe36b'; g.lineWidth = 2.6;
+      g.beginPath(); g.ellipse(0, 0, 10, 9, 0, 0, 7); g.stroke(); g.shadowBlur = 0; break;
     default:
       g.fillStyle = '#4a3426'; g.beginPath(); g.arc(1, 0, 6.5, Math.PI*.5, Math.PI*1.5); g.fill();
   }
+}
+function drawPack(g, pack, wob){
+  switch (pack){
+    case 'leather':
+      g.fillStyle = '#4e2f1a'; g.fillRect(-21, -10, 11, 20); g.fillStyle = '#c9a46a'; g.fillRect(-18, -2, 4, 4); break;
+    case 'teddy':
+      g.fillStyle = '#9a6a3a'; for (const y of [-8, 8]){ g.beginPath(); g.arc(-19, y, 3.8, 0, 7); g.fill(); }
+      g.beginPath(); g.arc(-16, 0, 9, 0, 7); g.fill();
+      g.fillStyle = '#d8b48a'; g.beginPath(); g.arc(-21, 0, 3.4, 0, 7); g.fill();
+      g.fillStyle = '#2b1a10'; for (const y of [-3.5, 3.5]){ g.beginPath(); g.arc(-17, y, 1.1, 0, 7); g.fill(); } break;
+    case 'chest':
+      g.fillStyle = '#7a4a1f'; g.fillRect(-22, -11, 13, 22);
+      g.fillStyle = '#e2b822'; g.fillRect(-22, -7, 13, 2); g.fillRect(-22, 5, 13, 2); g.fillRect(-17, -2, 3, 4); break;
+    case 'rocket':
+      g.fillStyle = '#9aa4ad'; g.fillRect(-21, -10, 10, 8); g.fillRect(-21, 2, 10, 8);
+      g.fillStyle = '#d0473a'; g.fillRect(-21, -10, 3, 8); g.fillRect(-21, 2, 3, 8);
+      if (wob){ g.fillStyle = Math.random() < .5 ? '#ffb347' : '#ffe36b'; for (const y of [-6, 6]){ g.beginPath(); g.moveTo(-21, y - 3); g.lineTo(-28 - Math.random()*5, y); g.lineTo(-21, y + 3); g.fill(); } } break;
+    default:
+      g.fillStyle = '#7a5532'; g.fillRect(-20, -10, 10, 20);
+  }
+}
+// Pets, drawn at the origin facing +x
+function drawPet(g, kind, dir, tt){
+  g.save(); g.rotate(dir);
+  const step = tt ? Math.sin(tt*16)*1.5 : 0;
+  g.fillStyle = 'rgba(0,0,0,.2)'; if (kind !== 'parrot'){ g.beginPath(); g.ellipse(2, 3, 9, 6, 0, 0, 7); g.fill(); }
+  switch (kind){
+    case 'dog':
+      g.fillStyle = '#b07a43'; g.beginPath(); g.ellipse(0, 0, 9, 5.5, 0, 0, 7); g.fill();
+      g.strokeStyle = '#b07a43'; g.lineWidth = 2; g.beginPath(); g.moveTo(-8, 0); g.lineTo(-12, step); g.stroke();
+      g.beginPath(); g.arc(9, 0, 4.5, 0, 7); g.fill();
+      g.fillStyle = '#6b4220'; for (const y of [-4, 4]){ g.beginPath(); g.ellipse(8, y, 2.5, 1.5, 0, 0, 7); g.fill(); }
+      g.fillStyle = '#1c1c1c'; g.beginPath(); g.arc(13, 0, 1.2, 0, 7); g.fill(); break;
+    case 'cat':
+      g.fillStyle = '#7d7f87'; g.beginPath(); g.ellipse(0, 0, 8, 5, 0, 0, 7); g.fill();
+      g.strokeStyle = '#7d7f87'; g.lineWidth = 2; g.beginPath(); g.moveTo(-7, 0); g.quadraticCurveTo(-12, 4 + step, -13, -2); g.stroke();
+      g.beginPath(); g.arc(8, 0, 4, 0, 7); g.fill();
+      for (const y of [-1, 1]){ g.beginPath(); g.moveTo(7, y*2); g.lineTo(9, y*6); g.lineTo(10, y*2); g.fill(); } break;
+    case 'duck':
+      g.fillStyle = '#f2d54a'; g.beginPath(); g.ellipse(0, 0, 7, 5, 0, 0, 7); g.fill();
+      g.beginPath(); g.arc(6, 0, 3.6, 0, 7); g.fill();
+      g.fillStyle = '#e8862a'; g.beginPath(); g.ellipse(10, 0, 2.5, 1.5, 0, 0, 7); g.fill(); break;
+    case 'mole':
+      g.fillStyle = '#3d3a40'; g.beginPath(); g.ellipse(0, 0, 8, 6, 0, 0, 7); g.fill();
+      g.fillStyle = '#f2a0b0'; g.beginPath(); g.arc(8, 0, 2.2, 0, 7); g.fill();
+      for (const y of [-1, 1]){ g.beginPath(); g.ellipse(4, y*6 + y*step*.5, 2.5, 1.6, 0, 0, 7); g.fill(); } break;
+    case 'parrot': // sits on the shoulder
+      g.fillStyle = '#2fa84f'; g.beginPath(); g.ellipse(-3, 11, 5, 3.4, 0, 0, 7); g.fill();
+      g.fillStyle = '#d0473a'; g.beginPath(); g.arc(1, 11, 2.6, 0, 7); g.fill();
+      g.fillStyle = '#f2c230'; g.beginPath(); g.moveTo(3, 10); g.lineTo(5.5, 11); g.lineTo(3, 12); g.fill();
+      g.fillStyle = '#2a6fd0'; g.fillRect(-10, 10, 4, 2); break;
+  }
+  g.restore();
+}
+function addTrail(list, kind, x, y, dir, foot){
+  if (kind === 'prints'){ const s = foot ? 1 : -1; list.push({kind, x: x - Math.sin(dir)*4*s, y: y + Math.cos(dir)*4*s, dir, life: 2.5, max: 2.5}); }
+  else if (kind === 'hearts') list.push({kind, x: x + (Math.random() - .5)*8, y, vy: -18, life: 1, max: 1});
+  else if (kind === 'sparkle') list.push({kind, x: x + (Math.random() - .5)*14, y: y + (Math.random() - .5)*14, life: .8, max: .8, c: Math.random() < .5 ? '#ffffff' : '#8fe6ff'});
+  else if (kind === 'gold') list.push({kind, x: x + (Math.random() - .5)*12, y: y + (Math.random() - .5)*12, vy: 8, life: 1.2, max: 1.2});
+}
+function drawTrail(g, p){
+  const a = Math.max(0, p.life/p.max);
+  g.globalAlpha = a;
+  if (p.kind === 'prints'){ g.save(); g.translate(p.x, p.y); g.rotate(p.dir); g.fillStyle = '#4a3420'; g.beginPath(); g.ellipse(0, 0, 3.5, 2, 0, 0, 7); g.fill(); g.restore(); }
+  else if (p.kind === 'hearts'){ g.fillStyle = '#ff6fa8'; g.beginPath(); g.arc(p.x - 2, p.y, 2.4, 0, 7); g.arc(p.x + 2, p.y, 2.4, 0, 7); g.fill(); g.beginPath(); g.moveTo(p.x - 4.3, p.y + .8); g.lineTo(p.x, p.y + 5.5); g.lineTo(p.x + 4.3, p.y + .8); g.fill(); }
+  else if (p.kind === 'sparkle'){ const r = 4*a + 1; g.fillStyle = p.c; g.beginPath(); g.moveTo(p.x, p.y - r); g.lineTo(p.x + r*.3, p.y); g.lineTo(p.x, p.y + r); g.lineTo(p.x - r*.3, p.y); g.closePath(); g.fill(); g.beginPath(); g.moveTo(p.x - r, p.y); g.lineTo(p.x, p.y + r*.3); g.lineTo(p.x + r, p.y); g.lineTo(p.x, p.y - r*.3); g.closePath(); g.fill(); }
+  else if (p.kind === 'gold'){ g.fillStyle = Math.random() < .3 ? '#fff1a8' : '#f2c230'; g.fillRect(p.x - 1, p.y - 1, 2.2, 2.2); }
+  g.globalAlpha = 1;
 }
 // One digger, drawn at the current origin. o: {dir, cx, cy (coil, relative), bag, swing, wob}
 function drawFigure(g, look, col, o){
@@ -803,9 +1220,17 @@ function drawFigure(g, look, col, o){
   g.fillStyle = det.fill; g.beginPath(); g.ellipse(o.cx, o.cy, 9, 6, Math.atan2(o.cy, o.cx) + Math.PI/2, 0, 7); g.fill();
   g.strokeStyle = det.stroke; g.lineWidth = 2; g.stroke(); g.shadowBlur = 0;
   g.save(); g.rotate(o.dir);
-  g.fillStyle = '#7a5532'; g.fillRect(-20, -10, 10, 20);
+  drawPack(g, look.pack, o.wob);
   (o.bag || []).slice(-6).forEach((ti, i) => { g.fillStyle = TYPES[ti] ? TYPES[ti].col : '#ccc'; g.beginPath(); g.arc(-22 - (i%2)*5, -7 + i*3, 3.5, 0, 7); g.fill(); });
   g.fillStyle = col; g.beginPath(); g.ellipse(0, 0, 12, 14, 0, 0, 7); g.fill();
+  if (look.jacket === 'stripes' || look.jacket === 'hivis' || look.jacket === 'tartan'){
+    g.save(); g.clip();
+    if (look.jacket === 'stripes'){ g.fillStyle = '#f4f1e8'; for (const x of [-9, -3, 3, 9]) g.fillRect(x, -14, 2.5, 28); }
+    if (look.jacket === 'hivis'){ g.fillStyle = '#d9dde0'; g.fillRect(-6, -14, 2.5, 28); g.fillRect(4, -14, 2.5, 28); }
+    if (look.jacket === 'tartan'){ g.fillStyle = 'rgba(30,20,40,.55)'; for (const x of [-8, 0, 8]){ g.fillRect(x, -14, 2.5, 28); g.fillRect(-12, x, 24, 2.5); }
+      g.fillStyle = 'rgba(242,194,48,.7)'; for (const x of [-4, 4]){ g.fillRect(x, -14, 1, 28); g.fillRect(-12, x, 24, 1); } }
+    g.restore();
+  }
   if (look.jacket === 'camo'){
     g.save(); g.clip();
     for (const [x, y, r, c] of [[-6,-7,5,'#3e4a26'],[5,6,6,'#8a8a5a'],[-3,8,4,'#3e4a26'],[6,-8,4,'#8a8a5a'],[-8,2,3,'#2e3a1c']]){ g.fillStyle = c; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); }
@@ -814,6 +1239,7 @@ function drawFigure(g, look, col, o){
   g.fillStyle = BOOT_HEX[look.boots] || BOOT_HEX.green; g.fillRect(4 + o.wob, -9, 5, 5); g.fillRect(4 - o.wob, 4, 5, 5);
   g.fillStyle = '#f0c9a0'; g.beginPath(); g.arc(2, 0, 7, 0, 7); g.fill();
   drawHat(g, look.hat);
+  if (look.pet === 'parrot') drawPet(g, 'parrot', 0, o.wob);
   if (o.swing > 0){
     const k = 1 - o.swing/.25, a = -1.1 + k*2.2;
     g.strokeStyle = sp.handle; g.lineWidth = 4; g.beginPath(); g.moveTo(0, 0); g.lineTo(Math.cos(a)*34, Math.sin(a)*34); g.stroke();
@@ -839,6 +1265,12 @@ function drawDigger(d){
     ctx.strokeStyle = POW_COL[act[0]]; ctx.globalAlpha = .55 + Math.sin(t*6)*.25; ctx.lineWidth = 3;
     ctx.beginPath(); ctx.arc(d.x, d.y, 21, 0, 7); ctx.stroke(); ctx.globalAlpha = 1;
   }
+  if (d.fx.x) for (let i = 0; i < 3; i++){
+    const ox = (i - 1)*7, ph = t*5 + i;
+    ctx.strokeStyle = 'rgba(154,205,50,.85)'; ctx.lineWidth = 2; ctx.beginPath();
+    for (let j = 0; j < 6; j++){ const yy = d.y - 18 - j*3, xx = d.x + ox + Math.sin(ph + j)*2.5; j ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy); } ctx.stroke();
+  }
+  if (d.fx.m){ ctx.strokeStyle = `rgba(127,179,255,${.25 + Math.sin(t*8)*.15})`; ctx.lineWidth = 2; ctx.setLineDash([6, 8]); ctx.beginPath(); ctx.arc(d.x, d.y, 60 + (t*60 % 30), 0, 7); ctx.stroke(); ctx.setLineDash([]); }
   if (d.fx.p){
     const lx = d.x + 15, ly = d.y - 16;
     ctx.strokeStyle = '#d9d9d9'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(lx, ly - 3, 3.5, Math.PI, 0); ctx.stroke();
@@ -897,6 +1329,46 @@ function draw(){
     ctx.beginPath(); ctx.arc(b.x, b.y, 12, 0, 7); ctx.stroke(); ctx.setLineDash([]);
     ctx.fillStyle = '#ff8ad8'; ctx.font = '800 10px Nunito, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('DECOY', b.x, b.y - 18);
   }
+  // trails under everyone
+  for (const p of trails) drawTrail(ctx, p);
+  // banana peels: everyone can spot them if they look
+  for (const tr of traps.values()){
+    ctx.save(); ctx.translate(tr.x, tr.y); ctx.rotate(.5);
+    ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.beginPath(); ctx.ellipse(2, 3, 10, 5, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = '#ffe14d';
+    for (const a of [0, 2.1, 4.2]){ ctx.save(); ctx.rotate(a); ctx.beginPath(); ctx.ellipse(6, 0, 7, 3, 0, 0, 7); ctx.fill(); ctx.restore(); }
+    ctx.fillStyle = '#8a6a2a'; ctx.beginPath(); ctx.arc(0, 0, 2.5, 0, 7); ctx.fill();
+    if (tr.owner === myId){ ctx.strokeStyle = 'rgba(255,225,77,.6)'; ctx.setLineDash([3, 3]); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(0, 0, 14, 0, 7); ctx.stroke(); ctx.setLineDash([]); }
+    ctx.restore();
+  }
+  // treasure map: the best real finds get a red X
+  if (me && me.fx.r) for (const b of mapPicks()){
+    ctx.strokeStyle = '#c0392b'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(b.x - 9, b.y - 9); ctx.lineTo(b.x + 9, b.y + 9); ctx.moveTo(b.x + 9, b.y - 9); ctx.lineTo(b.x - 9, b.y + 9); ctx.stroke();
+    ctx.strokeStyle = 'rgba(232,196,122,.7)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(b.x, b.y, 16 + Math.sin(t*4)*2, 0, 7); ctx.stroke();
+  }
+  // heavy finds, with ropes to whoever is carrying them
+  for (const h of heavies.values()){
+    for (const id of h.carriers){ const c = diggers.get(id); if (!c) continue;
+      ctx.strokeStyle = '#d8c79a'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(c.x, c.y); ctx.lineTo(h.x, h.y); ctx.stroke(); }
+    ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.beginPath(); ctx.ellipse(h.x + 4, h.y + 6, 22, 13, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = '#6f5a8f'; ctx.beginPath(); ctx.ellipse(h.x, h.y, 20, 15, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = '#9b7bd1'; ctx.beginPath(); ctx.ellipse(h.x - 3, h.y - 3, 14, 10, 0, 0, 7); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(h.x - 5, h.y - 5, 7, Math.PI, Math.PI*1.6); ctx.stroke();
+    ctx.font = '800 11px Nunito, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const lab = `${h.name} \u00B7 300 \u00B7 ${h.carriers.length}/2`;
+    ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(20,26,12,.85)'; ctx.strokeText(lab, h.x, h.y - 36); ctx.fillStyle = '#e4d2ff'; ctx.fillText(lab, h.x, h.y - 36);
+    // health bar: 8 bonks smashes it
+    const hpk = Math.max(0, (h.hp ?? 8)/8);
+    ctx.fillStyle = 'rgba(20,26,12,.85)'; ctx.fillRect(h.x - 23, h.y - 27, 46, 7);
+    ctx.fillStyle = hpk > .5 ? '#7ee07e' : hpk > .25 ? '#ffd447' : '#ff6b5b'; ctx.fillRect(h.x - 22, h.y - 26, 44*hpk, 5);
+    // countdown while it's waiting for two carriers
+    if (h.carriers.length < 2 && h.wait != null){
+      ctx.strokeStyle = '#c9a6ff'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(h.x, h.y, 26, -Math.PI/2, -Math.PI/2 + Math.PI*2*Math.min(1, h.wait/10)); ctx.stroke();
+      ctx.font = '400 15px ' + displayFont; ctx.lineWidth = 3; ctx.strokeStyle = '#1c2412'; ctx.fillStyle = '#ffffff';
+      ctx.strokeText(h.wait + 's', h.x, h.y + 1); ctx.fillText(h.wait + 's', h.x, h.y + 1);
+    }
+  }
   // supply crates drop from the sky
   for (const c of crates.values()){
     const fall = Math.max(0, 1 - c.age/.8), alt = fall*fall*220;
@@ -921,6 +1393,18 @@ function draw(){
     ctx.strokeStyle = r.col; ctx.globalAlpha = 1 - r.t/.6; ctx.lineWidth = 3;
     ctx.beginPath(); ctx.arc(r.x, r.y, 8 + r.t*90, 0, 7); ctx.stroke(); ctx.globalAlpha = 1;
   }
+  for (const fx of effects){
+    const k = fx.t/fx.life;
+    if (fx.kind === 'shock'){ ctx.strokeStyle = `rgba(255,94,94,${1 - k})`; ctx.lineWidth = 6*(1 - k) + 1; ctx.beginPath(); ctx.arc(fx.x, fx.y, 10 + k*85, 0, 7); ctx.stroke();
+      ctx.strokeStyle = `rgba(255,255,255,${.6*(1 - k)})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(fx.x, fx.y, 4 + k*70, 0, 7); ctx.stroke(); }
+    if (fx.kind === 'stink'){ for (let i = 0; i < 9; i++){ const a = i/9*Math.PI*2 + fx.t, r = 30 + k*110;
+      ctx.fillStyle = `rgba(154,205,50,${.45*(1 - k)})`; ctx.beginPath(); ctx.arc(fx.x + Math.cos(a)*r, fx.y + Math.sin(a)*r*.8, 16 + k*14, 0, 7); ctx.fill(); } }
+  }
+  for (const f of flies){
+    const d = diggers.get(f.to); if (!d) continue;
+    const k = f.t/.35, x = f.x + (d.x - f.x)*k, y = f.y + (d.y - f.y)*k - Math.sin(k*Math.PI)*20;
+    ctx.fillStyle = TYPES[f.ti] ? TYPES[f.ti].col : '#ccc'; ctx.beginPath(); ctx.arc(x, y, 6, 0, 7); ctx.fill();
+  }
   for (const p of pops){
     const k = p.t/.6, y = p.y - Math.sin(k*Math.PI)*40;
     ctx.fillStyle = TYPES[p.ti].col; ctx.beginPath(); ctx.arc(p.x, y, 7, 0, 7); ctx.fill();
@@ -928,6 +1412,8 @@ function draw(){
   }
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   if (TYPES.length){
+    for (const d of diggers.values()) if (d.seen && d.pet && d.look && d.look.pet && d.look.pet !== 'none' && d.look.pet !== 'parrot'){
+      ctx.save(); ctx.translate(d.pet.x, d.pet.y); drawPet(ctx, d.look.pet, d.pet.dir, d.pet.moving ? t : 0); ctx.restore(); }
     [...diggers.values()].filter(d => d.seen).sort((a, b) => a.y - b.y).forEach(drawDigger);
     for (const g of magpies.values()) drawMagpie(g);
   }
@@ -939,19 +1425,36 @@ function draw(){
     ctx.globalAlpha = 1;
   }
   ctx.restore();
-  // arrow to an off-screen crate
-  if (inGame && me) for (const c of crates.values()){
-    const sx = (c.x - cx)*scale, sy = (c.y - cy)*scale, pad = 34;
-    const top = 200; // keep the arrow clear of the score panels
-    if (sx > pad && sx < vw - pad && sy > top && sy < vh - pad) continue;
+  // arrows to off-screen crates, and heavy finds waiting for carriers
+  const targets = [];
+  for (const c of crates.values()) targets.push({x: c.x, y: c.y, col: '#ffd447', label: m => `CRATE ${m}m`});
+  if (me && me.fx.r) for (const b of mapPicks()) targets.push({x: b.x, y: b.y, col: '#e8c47a', label: m => `MAP ${m}m`});
+  for (const h of heavies.values()) if (h.carriers.length < 2 && !h.carriers.includes(myId))
+    targets.push({x: h.x, y: h.y, col: '#c9a6ff', label: m => `${h.name.toUpperCase()} ${h.wait}s`});
+  const placed = [];
+  if (inGame && me) targets.forEach((c, i) => {
+    const sx = (c.x - cx)*scale, sy = (c.y - cy)*scale, pad = 40;
+    const top = 230; // keep the arrow clear of the score panels
+    if (sx > pad && sx < vw - pad && sy > top && sy < vh - pad) return;
     const ang = Math.atan2(sy - vh/2, sx - vw/2);
-    const ex = Math.max(pad, Math.min(vw - pad, sx)), ey = Math.max(top, Math.min(vh - pad - 10, sy));
-    ctx.save(); ctx.translate(ex, ey); ctx.rotate(ang);
-    ctx.globalAlpha = .75 + Math.sin(t*6)*.25;
-    ctx.fillStyle = '#8fe6ff'; ctx.strokeStyle = 'rgba(20,26,12,.85)'; ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.moveTo(16, 0); ctx.lineTo(-10, -12); ctx.lineTo(-4, 0); ctx.lineTo(-10, 12); ctx.closePath(); ctx.stroke(); ctx.fill();
-    ctx.restore(); ctx.globalAlpha = 1;
-  }
+    const ex = Math.max(pad + 30, Math.min(vw - pad - 30, sx));
+    let ey = Math.max(top, Math.min(vh - pad - 10, sy));
+    // don't stack arrows on top of each other
+    for (let n = 0; n < 8 && placed.some(q => Math.hypot(q.x - ex, q.y - ey) < 74); n++) ey = ey + 78 > vh - pad - 10 ? ey - 78 : ey + 78;
+    placed.push({x: ex, y: ey});
+    const pulse = 1 + Math.sin(t*7)*.12, m = Math.round(Math.hypot(c.x - me.x, c.y - me.y)/10);
+    ctx.save(); ctx.translate(ex, ey);
+    ctx.fillStyle = 'rgba(20,26,12,.8)'; ctx.beginPath(); ctx.arc(0, 0, 30, 0, 7); ctx.fill();
+    ctx.strokeStyle = c.col; ctx.lineWidth = 3; ctx.stroke();
+    ctx.save(); ctx.rotate(ang); ctx.scale(pulse, pulse);
+    ctx.fillStyle = c.col; ctx.strokeStyle = '#1c2412'; ctx.lineWidth = 3; ctx.lineJoin = 'round';
+    ctx.beginPath(); ctx.moveTo(24, 0); ctx.lineTo(-6, -16); ctx.lineTo(0, 0); ctx.lineTo(-6, 16); ctx.closePath(); ctx.stroke(); ctx.fill();
+    ctx.restore();
+    ctx.font = '800 11px Nunito, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.lineWidth = 3; ctx.strokeStyle = '#1c2412'; ctx.fillStyle = '#ffffff';
+    const lab = c.label(m); ctx.strokeText(lab, 0, 42); ctx.fillText(lab, 0, 42);
+    ctx.restore();
+  });
   if (inGame && timeLeft < DUSK){
     const k = 1 - timeLeft/DUSK;
     ctx.fillStyle = `rgba(26,30,64,${k*.45})`; ctx.fillRect(0, 0, vw, vh);
@@ -980,6 +1483,12 @@ function drawStage(canvas, st, dt, look, col){
   const sw = Math.sin(st.t*5)*.55, swing = (st.t % 2.2) < .25 ? .25 - (st.t % 2.2) : 0;
   const zoom = H > 150 ? 3 : 2.2;
   g.save(); g.translate(W/2, H/2 + 4); g.scale(zoom, zoom);
+  if (fig.trail && fig.trail !== 'none'){
+    st.trail = st.trail || []; st.trailT = (st.trailT || 0) - dt;
+    if (st.trailT <= 0){ st.trailT = fig.trail === 'prints' ? .2 : .07; st.foot = !st.foot; addTrail(st.trail, fig.trail, -Math.cos(dir)*10, -Math.sin(dir)*10, dir, st.foot); }
+    for (let i = st.trail.length - 1; i >= 0; i--){ const p = st.trail[i]; p.life -= dt; p.x -= 14*dt*Math.cos(dir); p.y -= 14*dt*Math.sin(dir); p.y += (p.vy || 0)*dt; if (p.life <= 0) st.trail.splice(i, 1); else drawTrail(g, p); }
+  }
+  if (fig.pet && fig.pet !== 'none' && fig.pet !== 'parrot'){ g.save(); g.translate(-Math.cos(dir)*26 + Math.sin(dir)*10, -Math.sin(dir)*26 - Math.cos(dir)*10); drawPet(g, fig.pet, dir, st.t); g.restore(); }
   drawFigure(g, fig, figCol, {dir, cx: Math.cos(dir + sw)*30, cy: Math.sin(dir + sw)*30, bag: [], swing, wob: Math.sin(st.t*8)*1.5});
   g.restore();
   if (!fx) return;
