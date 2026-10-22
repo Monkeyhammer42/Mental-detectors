@@ -1,0 +1,682 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#2c4a1c">
+<title>Finders Keepers</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bowlby+One+SC&family=Nunito:wght@600;800&display=swap">
+<style>
+:root{
+  --field:#4f7a33; --ink:#1c2412; --paper:#f4ecd4; --gold:#f0bd34; --hud:rgba(24,30,16,.82); --dig:#c9632e; --bonk:#b8323a;
+  --display:"Bowlby One SC", "Arial Black", Impact, sans-serif;
+  --body:"Nunito", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme: dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0;overflow:hidden;background:#2c4a1c;color:var(--paper);font-family:var(--body);
+  touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+#game{position:fixed;inset:0;overflow:hidden}
+canvas{display:block;width:100%;height:100%}
+.hud{position:absolute;top:calc(10px + env(safe-area-inset-top,0px));left:calc(10px + env(safe-area-inset-left,0px));
+  display:flex;gap:8px;align-items:stretch;pointer-events:none}
+.card{background:var(--hud);border-radius:12px;padding:6px 12px;display:flex;flex-direction:column;justify-content:center;min-width:60px}
+.card small{font-size:10px;letter-spacing:.12em;text-transform:uppercase;opacity:.75}
+.card b{font-family:var(--display);font-size:20px;line-height:1.1;font-weight:400;font-variant-numeric:tabular-nums}
+#banked b{color:var(--gold)}
+#timer.low b{color:#ff7a6b}
+#signal{position:absolute;top:calc(68px + env(safe-area-inset-top,0px));left:calc(10px + env(safe-area-inset-left,0px));
+  width:150px;height:8px;border-radius:6px;background:var(--hud);overflow:hidden;pointer-events:none}
+#signal i{display:block;height:100%;width:0;background:#cfe7a8;transition:width .08s linear}
+.topright{position:absolute;top:calc(10px + env(safe-area-inset-top,0px));right:calc(10px + env(safe-area-inset-right,0px));
+  display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+#mute{width:44px;height:36px;border-radius:10px;border:0;background:var(--hud);color:var(--paper);font:800 12px var(--body)}
+#board{background:var(--hud);border-radius:12px;padding:6px 10px;margin:0;list-style:none;font-size:12px;min-width:112px;pointer-events:none}
+#board li{display:flex;justify-content:space-between;gap:10px;font-variant-numeric:tabular-nums;line-height:1.55}
+#board li.me{color:var(--gold);font-weight:800}
+#board i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
+.btn{position:absolute;border-radius:50%;border:4px solid rgba(0,0,0,.25);color:var(--paper);font:400 20px var(--display);letter-spacing:.04em;
+  transition:transform .06s,opacity .15s,background .15s}
+#digBtn{right:calc(20px + env(safe-area-inset-right,0px));bottom:calc(26px + env(safe-area-inset-bottom,0px));width:104px;height:104px;background:#6b5a45;opacity:.55}
+#digBtn.ready{background:var(--dig);opacity:1;box-shadow:0 0 0 6px rgba(240,189,52,.35)}
+#bonkBtn{right:calc(132px + env(safe-area-inset-right,0px));bottom:calc(92px + env(safe-area-inset-bottom,0px));width:82px;height:82px;font-size:17px;background:#4b5560;opacity:.8}
+#bonkBtn.ready{background:var(--bonk);opacity:1;box-shadow:0 0 0 6px rgba(255,90,90,.3)}
+.btn.hit{transform:scale(.9)}
+.btn.off{opacity:.3}
+#digBtn.shake{animation:shake .25s}
+@keyframes shake{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.overlay{position:absolute;inset:0;display:grid;place-items:center;background:rgba(20,28,12,.74);overflow:auto;
+  padding:calc(16px + env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) calc(16px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.panel{width:100%;max-width:340px;background:var(--paper);color:var(--ink);border-radius:18px;padding:22px 22px 18px;text-align:left;user-select:text;-webkit-user-select:text}
+.panel h1{font-family:var(--display);font-weight:400;font-size:34px;line-height:1;margin:0 0 4px;color:#2f4a1c;text-wrap:balance}
+.panel h2{font-family:var(--display);font-weight:400;font-size:26px;line-height:1.1;margin:0 0 10px;color:#2f4a1c}
+.panel p{margin:0 0 12px;font-size:14px;line-height:1.45}
+.panel label{display:block;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#6d5f38;margin:0 0 4px}
+.panel input{width:100%;font:800 18px var(--body);padding:10px 12px;border-radius:10px;border:2px solid #cfc2a0;background:#fffaf0;color:var(--ink);margin-bottom:12px}
+.panel input:focus{outline:none;border-color:var(--dig)}
+.panel button{width:100%;padding:14px;border:0;border-radius:12px;background:var(--dig);color:var(--paper);font:400 19px var(--display);letter-spacing:.04em;margin-top:4px}
+.panel button.alt{background:#3f5a2a}
+.panel button.ghost{background:transparent;color:#3f5a2a;border:2px solid #3f5a2a;font-size:15px;padding:10px}
+.panel button:disabled{opacity:.5}
+.row{display:flex;gap:8px;align-items:flex-end}
+.row > div{flex:1;min-width:0}
+.row input{text-transform:uppercase;letter-spacing:.2em}
+.or{text-align:center;font-size:12px;color:#8a7a50;margin:12px 0 8px;letter-spacing:.14em}
+.code{font-family:var(--display);font-size:44px;letter-spacing:.12em;color:var(--dig);line-height:1;margin:2px 0 12px}
+.plist{list-style:none;margin:0 0 12px;padding:0;font-size:15px}
+.plist li{padding:5px 0;border-bottom:1px solid #ddd1b0;display:flex;align-items:center;gap:8px}
+.plist i{width:12px;height:12px;border-radius:50%;display:inline-block}
+.plist em{margin-left:auto;font-style:normal;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#8a7a50}
+.err{color:#a8321f;font-weight:800;font-size:14px;min-height:0}
+.tag{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#7a6a3c;margin-bottom:10px;display:block}
+.note{font-size:12px;color:#6d5f38}
+button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+@media (prefers-reduced-motion: reduce){.btn{transition:none}#digBtn.shake{animation:none}}
+</style>
+</head>
+<body>
+<div id="game">
+  <canvas id="c"></canvas>
+  <div class="hud">
+    <div class="card" id="banked"><small>Banked</small><b id="bankedN">0</b></div>
+    <div class="card"><small>In bag</small><b id="bagN">0</b></div>
+    <div class="card" id="timer"><small>Closes in</small><b id="timeN">3:00</b></div>
+  </div>
+  <div id="signal" aria-hidden="true"><i id="sigBar"></i></div>
+  <div class="topright">
+    <button id="mute" aria-label="Toggle sound">SND</button>
+    <ol id="board" aria-label="Banked totals"></ol>
+  </div>
+  <button id="bonkBtn" class="btn" aria-label="Bonk">BONK</button>
+  <button id="digBtn" class="btn" aria-label="Dig">DIG</button>
+
+  <div id="home" class="overlay">
+    <div class="panel">
+      <h1>Finders Keepers</h1>
+      <span class="tag">Online · up to 8 diggers</span>
+      <p>Follow the beep, dig it up and bank it at the Museum before it closes. Bonk your mates to steal their finds.</p>
+      <label for="nameIn">Your name</label>
+      <input id="nameIn" maxlength="12" autocomplete="nickname" placeholder="e.g. Michael">
+      <button id="createBtn">Create game</button>
+      <div class="or">OR JOIN A MATE</div>
+      <div class="row">
+        <div><label for="codeIn">Game code</label><input id="codeIn" maxlength="4" autocomplete="off" placeholder="ABCD"></div>
+      </div>
+      <button id="joinBtn" class="alt">Join game</button>
+      <p class="err" id="homeErr"></p>
+    </div>
+  </div>
+
+  <div id="lobby" class="overlay" hidden>
+    <div class="panel">
+      <span class="tag">Game code</span>
+      <div class="code" id="lobbyCode">----</div>
+      <button id="shareBtn" class="ghost">Send invite link</button>
+      <p class="note" id="shareNote"></p>
+      <label>Diggers here</label>
+      <ul class="plist" id="lobbyList"></ul>
+      <p class="note">Bots fill any empty spots up to 6 diggers.</p>
+      <button id="startBtn">Start round</button>
+      <p class="note" id="waitNote" hidden>Waiting for the host to start&hellip;</p>
+    </div>
+  </div>
+
+  <div id="end" class="overlay" hidden>
+    <div class="panel">
+      <span class="tag">The Museum is closed</span>
+      <h2 id="endTitle">You win</h2>
+      <ul class="plist" id="endList"></ul>
+      <p id="endNote"></p>
+      <button id="againBtn">Play again</button>
+      <p class="note" id="againNote" hidden>Waiting for the host to start the next round&hellip;</p>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+const $ = id => document.getElementById(id);
+const cv = $('c'), ctx = cv.getContext('2d');
+
+// ---------- state from server ----------
+let TYPES = [], WORLD = 1800, MUSEUM = {x: 900, y: 880, w: 220, h: 150}, ROUND = 180, DUSK = 30;
+let ws = null, myId = null, hostId = null, roomCode = null, roomState = 'lobby', inGame = false;
+let buried = new Map(), holes = [], loose = new Map(), diggers = new Map(), magpies = new Map();
+let rings = [], floats = [], pops = [], dirt = [];
+let t = 0, timeLeft = 180, pulsePhase = 0, signal = 0, target = null, muted = false, me = null, lastSend = 0, sentX = 0, sentY = 0, sentDir = 0;
+
+const dist = (a, b) => Math.hypot(a.x-b.x, a.y-b.y);
+const bagValue = d => d.bag.reduce((a, ti) => a + TYPES[ti].v, 0);
+function inMuseumZone(x, y, pad = 0){
+  return x > MUSEUM.x - MUSEUM.w/2 - pad && x < MUSEUM.x + MUSEUM.w/2 + pad && y > MUSEUM.y - MUSEUM.h/2 - pad && y < MUSEUM.y + MUSEUM.h/2 + pad;
+}
+
+let dpr = 1, vw = 0, vh = 0, scale = 1;
+function resize(){
+  dpr = Math.min(window.devicePixelRatio||1, 2);
+  vw = cv.clientWidth; vh = cv.clientHeight;
+  cv.width = vw*dpr; cv.height = vh*dpr;
+  scale = Math.max(0.75, Math.min(1.6, Math.min(vw, vh)/520));
+}
+addEventListener('resize', resize); resize();
+
+// ---------- field ----------
+const bg = document.createElement('canvas');
+function paintField(){
+  bg.width = bg.height = WORLD;
+  const g = bg.getContext('2d');
+  let seed = 7; const rnd = () => (seed = (seed*16807) % 2147483647) / 2147483647; // same field for everyone
+  for (let i = 0; i < WORLD/60; i++){ g.fillStyle = i%2 ? '#56843a' : '#4f7a33'; g.fillRect(0, i*60, WORLD, 60); }
+  const track = (w, c) => {
+    g.strokeStyle = c; g.lineWidth = w; g.lineCap = 'round';
+    g.beginPath(); g.moveTo(MUSEUM.x, MUSEUM.y+60); g.bezierCurveTo(820,1200,1040,1450,930,WORLD); g.stroke();
+    g.beginPath(); g.moveTo(0,640); g.bezierCurveTo(400,700,600,980,MUSEUM.x-80,MUSEUM.y+40); g.stroke();
+  };
+  track(34, '#9b8158'); track(20, '#ad9468');
+  for (let i = 0; i < 1400; i++){
+    const x = rnd()*WORLD, y = rnd()*WORLD;
+    g.fillStyle = rnd() < .5 ? '#3f6827' : '#6a9a45';
+    g.fillRect(x, y, 2, 5); g.fillRect(x+3, y+1, 2, 4);
+  }
+  for (let i = 0; i < 90; i++){ g.fillStyle = '#8c8a7c'; g.beginPath(); g.ellipse(rnd()*WORLD, rnd()*WORLD, 4+rnd()*5, 3+rnd()*3, 0, 0, 7); g.fill(); }
+  g.fillStyle = '#2c4a1c'; const hb = 36;
+  g.fillRect(0,0,WORLD,hb); g.fillRect(0,WORLD-hb,WORLD,hb); g.fillRect(0,0,hb,WORLD); g.fillRect(WORLD-hb,0,hb,WORLD);
+  g.fillStyle = '#365a22';
+  for (let i = 0; i < WORLD; i += 22){ for (const [x,y] of [[i,hb],[i,WORLD-hb],[hb,i],[WORLD-hb,i]]){ g.beginPath(); g.arc(x,y,13,0,7); g.fill(); } }
+  g.fillStyle = '#c9b993'; g.beginPath(); g.ellipse(MUSEUM.x, MUSEUM.y+10, 175, 135, 0, 0, 7); g.fill();
+}
+paintField();
+
+// ---------- audio ----------
+let ac = null;
+function unlockAudio(){ try { ac = ac || new (window.AudioContext || window.webkitAudioContext)(); ac.resume(); } catch (_) {} }
+function beep(freq, dur, type = 'sine', vol = .08){
+  if (!ac || muted || vol < .004) return;
+  const o = ac.createOscillator(), g = ac.createGain();
+  o.type = type; o.frequency.value = freq;
+  g.gain.setValueAtTime(vol, ac.currentTime); g.gain.exponentialRampToValueAtTime(.0001, ac.currentTime + dur);
+  o.connect(g).connect(ac.destination); o.start(); o.stop(ac.currentTime + dur);
+}
+const near = (x, y) => me ? Math.max(0, 1 - Math.hypot(x-me.x, y-me.y)/500) : 0;
+const chime = (v = 1) => [660, 880, 1320].forEach((f,i) => setTimeout(() => beep(f, .25, 'triangle', .1*v), i*90));
+const thunk = (v = 1) => beep(110 + Math.random()*30, .08, 'square', .05*v);
+const thwack = (v = 1) => { beep(90, .18, 'sawtooth', .14*v); beep(1400, .05, 'square', .05*v); };
+const caw = (v = 1) => { beep(900, .09, 'sawtooth', .06*v); setTimeout(() => beep(720, .13, 'sawtooth', .06*v), 110); };
+
+// ---------- screens ----------
+function show(id){ for (const s of ['home','lobby','end']) $(s).hidden = s !== id; }
+const params = new URLSearchParams(location.search);
+try { $('nameIn').value = localStorage.getItem('fk-name') || ''; } catch (_) {}
+if (params.get('room')){ $('codeIn').value = params.get('room').toUpperCase().slice(0, 4); $('joinBtn').textContent = `Join game ${$('codeIn').value}`; }
+function getName(){
+  const n = $('nameIn').value.trim().slice(0, 12);
+  if (!n){ $('homeErr').textContent = 'Pop your name in first.'; $('nameIn').focus(); return null; }
+  try { localStorage.setItem('fk-name', n); } catch (_) {}
+  return n;
+}
+$('createBtn').addEventListener('click', () => { const n = getName(); if (n){ unlockAudio(); connect(n, ''); } });
+$('joinBtn').addEventListener('click', () => {
+  const n = getName(); if (!n) return;
+  const code = $('codeIn').value.trim().toUpperCase();
+  if (code.length !== 4){ $('homeErr').textContent = 'Game codes are 4 letters.'; $('codeIn').focus(); return; }
+  unlockAudio(); connect(n, code);
+});
+$('startBtn').addEventListener('click', () => { unlockAudio(); send({t: 'start'}); });
+$('againBtn').addEventListener('click', () => { unlockAudio(); send({t: 'start'}); });
+$('shareBtn').addEventListener('click', async () => {
+  const url = `${location.origin}${location.pathname}?room=${roomCode}`;
+  try { if (navigator.share){ await navigator.share({title: 'Finders Keepers', text: `Come dig with me! Code ${roomCode}`, url}); return; } } catch (_) { return; }
+  try { await navigator.clipboard.writeText(url); $('shareNote').textContent = 'Link copied. Paste it to your mates.'; }
+  catch (_) { $('shareNote').textContent = url; }
+});
+$('mute').addEventListener('click', () => { muted = !muted; $('mute').textContent = muted ? 'OFF' : 'SND'; });
+
+function renderLobby(players){
+  $('lobbyCode').textContent = roomCode;
+  $('lobbyList').innerHTML = '';
+  for (const p of players){
+    const li = document.createElement('li');
+    const dot = document.createElement('i'); dot.style.background = p.col; li.append(dot);
+    li.append(document.createTextNode(p.name + (p.id === myId ? ' (you)' : '')));
+    if (p.id === hostId){ const em = document.createElement('em'); em.textContent = 'host'; li.append(em); }
+    $('lobbyList').append(li);
+  }
+  const isHost = myId === hostId;
+  $('startBtn').hidden = !isHost; $('waitNote').hidden = isHost;
+  $('againBtn').hidden = !isHost; $('againNote').hidden = isHost;
+}
+
+// ---------- network ----------
+function send(obj){ if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj)); }
+function connect(name, code){
+  $('homeErr').textContent = 'Connecting…';
+  $('createBtn').disabled = $('joinBtn').disabled = true;
+  let opened = false;
+  const slow = setTimeout(() => { if (!opened) $('homeErr').textContent = 'Waking the server up. This can take up to a minute the first time…'; }, 4000);
+  ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host);
+  ws.onopen = () => { opened = true; clearTimeout(slow); send({t: 'join', name, room: code}); };
+  ws.onmessage = e => { let m; try { m = JSON.parse(e.data); } catch (_) { return; } handle(m); };
+  ws.onclose = () => {
+    clearTimeout(slow);
+    $('createBtn').disabled = $('joinBtn').disabled = false;
+    if (!opened) $('homeErr').textContent = 'Couldn’t reach the server. Try again in a moment.';
+    else if (!$('homeErr').dataset.keep) $('homeErr').textContent = 'Connection lost. Rejoin with the same code.';
+    delete $('homeErr').dataset.keep;
+    if (roomCode) $('codeIn').value = roomCode;
+    inGame = false; ws = null; show('home');
+  };
+}
+function handle(m){
+  if (m.t === 'error'){ $('homeErr').textContent = m.msg; $('homeErr').dataset.keep = '1'; ws.close(); return; }
+  if (m.t === 'hello'){ myId = m.you; $('homeErr').textContent = ''; return; }
+  if (m.t === 'lobby'){
+    roomCode = m.code; hostId = m.host; roomState = m.state;
+    history.replaceState(null, '', `?room=${roomCode}`);
+    renderLobby(m.players);
+    if (m.state === 'lobby' || (m.state === 'end' && !inGame && $('end').hidden)) show('lobby');
+    return;
+  }
+  if (m.t === 'init'){ startRound(m); return; }
+  if (m.t === 's'){ applySnap(m); return; }
+  if (m.t === 'end'){ endRound(m); return; }
+}
+function startRound(m){
+  TYPES = m.types; ROUND = m.round; DUSK = m.dusk; timeLeft = m.tl;
+  buried = new Map(m.buried.map(([id, x, y, ti, prog, name]) => [id, {id, x, y, ti, prog, name}]));
+  holes = m.holes.map(([x, y, r]) => ({x, y, r}));
+  loose = new Map(m.loose.map(([id, x, y, ti, name]) => [id, {id, x, y, fx: x, fy: y, ti, name, age: 1}]));
+  diggers = new Map(); magpies = new Map();
+  for (const d of m.diggers) addDigger(d);
+  me = diggers.get(myId);
+  rings = []; floats = []; pops = []; dirt = [];
+  update.lastTl = undefined; inGame = true; show(null); chime();
+}
+function addDigger(d){
+  diggers.set(d.id, {id: d.id, name: d.name, col: d.col, bot: d.bot, x: MUSEUM.x, y: MUSEUM.y + 140, tx: null, ty: null, dir: 0, tdir: 0,
+    stun: 0, immune: 0, bag: [], banked: 0, moving: false, swing: 0, coil: {x: MUSEUM.x, y: MUSEUM.y + 140}, seen: false});
+}
+function applySnap(m){
+  if (!inGame) return;
+  timeLeft = m.tl;
+  for (const [id, x, y, dir, stun, immune, bag, banked, moving] of m.d){
+    const d = diggers.get(id); if (!d) continue;
+    d.stun = stun; d.immune = immune; d.bag = bag ? bag.split('').map(Number) : []; d.banked = banked;
+    if (d === me){ if (!d.seen){ d.x = x; d.y = y; d.dir = dir; d.seen = true; } continue; }
+    d.tx = x; d.ty = y; d.tdir = dir; d.moving = !!moving;
+    if (!d.seen){ d.x = x; d.y = y; d.dir = dir; d.seen = true; }
+  }
+  const live = new Set();
+  for (const [id, x, y, alt, dir, ti, stun] of m.m){
+    live.add(id);
+    let g = magpies.get(id);
+    if (!g){ g = {id, x, y, alt, dir, flap: Math.random()*6}; magpies.set(id, g); }
+    g.tx = x; g.ty = y; g.talt = alt; g.tdir = dir; g.ti = ti; g.stun = stun;
+  }
+  for (const id of magpies.keys()) if (!live.has(id)) magpies.delete(id);
+  for (const e of m.e) applyEvent(e);
+}
+const nameOf = id => (diggers.get(id) || {}).name || 'Someone';
+function floatAt(x, y, text, col, opts = {}){ floats.push({x, y, text, col, t: 0, ...opts}); }
+function applyEvent(e){
+  const [k] = e;
+  if (k === 'prog'){
+    const [, id, prog, by] = e, b = buried.get(id); if (!b) return;
+    b.prog = prog;
+    if (by !== myId) thunk(near(b.x, b.y)*.6);
+    for (let i = 0; i < 6; i++) dirt.push({x: b.x, y: b.y, vx: (Math.random()-.5)*160, vy: (Math.random()-.5)*160, t: 0});
+  } else if (k === 'dug'){
+    const [, id, by] = e, b = buried.get(id); if (!b) return;
+    buried.delete(id);
+    holes.push({x: b.x, y: b.y, r: 9 + TYPES[b.ti].taps*.9});
+    pops.push({x: b.x, y: b.y, ti: b.ti, t: 0});
+    const d = diggers.get(by);
+    if (by === myId){ floatAt(me.x, me.y - 40, `${b.name}  +${TYPES[b.ti].v}`, TYPES[b.ti].ring); if (b.ti === 0) beep(160, .2, 'square', .06); else chime(); }
+    else if (d && (b.ti === 3 || near(b.x, b.y) > .3)) floatAt(b.x, b.y - 40, `${d.name}: ${b.name}`, TYPES[b.ti].ring, {small: true});
+  } else if (k === 'hshift'){ holes.shift(); }
+  else if (k === 'spawn'){ const [, id, x, y, ti, name] = e; buried.set(id, {id, x, y, ti, prog: 0, name}); }
+  else if (k === 'loose'){ const [, id, x, y, fx, fy, ti, name] = e; loose.set(id, {id, x, y, fx, fy, ti, name, age: 0}); }
+  else if (k === 'pick'){
+    const [, id, by] = e, l = loose.get(id); loose.delete(id);
+    if (l && by === myId){ floatAt(me.x, me.y - 40, `Grabbed ${l.name}  +${TYPES[l.ti].v}`, TYPES[l.ti].ring); chime(); }
+  } else if (k === 'bank'){
+    const [, by, v] = e;
+    if (by === myId){ floatAt(MUSEUM.x, MUSEUM.y - 90, `Banked +${v}`, '#f0bd34', {big: true}); chime(); setTimeout(chime, 220); }
+    else { floatAt(MUSEUM.x, MUSEUM.y - 90, `${nameOf(by)} banked +${v}`, '#f4ecd4', {small: true}); chime(.25); }
+  } else if (k === 'whiff'){
+    const d = diggers.get(e[1]); if (!d) return; d.swing = .25;
+    if (d !== me) beep(300, .06, 'triangle', .04*near(d.x, d.y));
+  } else if (k === 'blocked'){
+    const a = diggers.get(e[1]), v = diggers.get(e[2]); if (a) a.swing = .25;
+    if (v) floatAt(v.x, v.y - 34, 'Too soon!', '#ffffff', {small: true});
+  } else if (k === 'bonk'){
+    const [, aid, vid, ti, name] = e, a = diggers.get(aid), v = diggers.get(vid); if (!a || !v) return;
+    a.swing = .25; v.stun = 1;
+    thwack(Math.max(near(a.x, a.y), near(v.x, v.y), aid === myId || vid === myId ? 1 : 0));
+    if (vid === myId) floatAt(v.x, v.y - 40, ti >= 0 ? `${a.name} got you! -${name}` : `${a.name} bonked you`, '#ff8a7a');
+    else if (aid === myId) floatAt(v.x, v.y - 40, ti >= 0 ? `${v.name} dropped ${name}` : 'BONK', ti >= 0 ? TYPES[ti].ring : '#ffffff');
+    else if (ti >= 0 && near(v.x, v.y) > .2) floatAt(v.x, v.y - 40, `${v.name} dropped ${name}`, TYPES[ti].ring, {small: true});
+  } else if (k === 'pos'){
+    const [, id, x, y] = e, d = diggers.get(id);
+    if (d === me){ me.x = x; me.y = y; }
+  } else if (k === 'mspawn'){
+    if (e[2] === myId){ floatAt(me.x, me.y - 50, 'Magpie incoming!', '#ffffff'); caw(); }
+  } else if (k === 'steal'){
+    const [, , vid, ti, name] = e, v = diggers.get(vid); if (!v) return;
+    if (vid === myId){ floatAt(v.x, v.y - 40, `Magpie took your ${name}!`, '#ff8a7a'); caw(); }
+    else if (near(v.x, v.y) > .2){ floatAt(v.x, v.y - 40, `Magpie robbed ${v.name}`, '#f4ecd4', {small: true}); caw(near(v.x, v.y)); }
+  } else if (k === 'mhit'){
+    const [, mid, aid, ti, name] = e, g = magpies.get(mid), a = diggers.get(aid); if (a) a.swing = .25;
+    const x = g ? g.x : a ? a.x : 0, y = g ? g.y : a ? a.y : 0;
+    thwack(aid === myId ? 1 : near(x, y)); caw(aid === myId ? .7 : near(x, y)*.7);
+    if (ti >= 0 && (aid === myId || near(x, y) > .2)) floatAt(x, y - 40, aid === myId ? `Magpie dropped ${name}!` : `${nameOf(aid)} bonked a magpie`, TYPES[ti].ring, {small: aid !== myId});
+  } else if (k === 'join'){ addDigger(e[1]); }
+  else if (k === 'leave'){ diggers.delete(e[1]); }
+}
+function endRound(m){
+  inGame = false;
+  const lost = me ? bagValue(me) : 0;
+  const [wid, wname] = m.rank[0] || [];
+  $('endTitle').textContent = wid === myId ? 'You win!' : `${wname} wins`;
+  $('endList').innerHTML = '';
+  for (const [id, name, col, banked, bot] of m.rank){
+    const li = document.createElement('li');
+    const dot = document.createElement('i'); dot.style.background = col; li.append(dot);
+    li.append(document.createTextNode(name + (id === myId ? ' (you)' : bot ? ' (bot)' : '')));
+    const em = document.createElement('em'); em.textContent = banked; em.style.fontSize = '15px'; em.style.fontWeight = '800'; em.style.color = 'var(--ink)'; li.append(em);
+    $('endList').append(li);
+  }
+  $('endNote').textContent = lost ? `You were still carrying ${lost} when the doors locked. That’s gone.` : 'You banked everything before closing.';
+  show('end');
+  [523, 392, 330].forEach((f, i) => setTimeout(() => beep(f, .5, 'triangle', .1), i*260));
+}
+
+// ---------- input ----------
+const keys = {};
+addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  const k = e.key.toLowerCase(); keys[k] = true;
+  if (e.key === ' ' || k === 'e'){ e.preventDefault(); if (!e.repeat) playerDig(); }
+  if (k === 'f' || k === 'q'){ if (!e.repeat) playerBonk(); }
+});
+addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+const stick = {id: null, ox: 0, oy: 0, x: 0, y: 0};
+cv.addEventListener('pointerdown', e => {
+  if (stick.id !== null) return;
+  stick.id = e.pointerId; stick.ox = stick.x = e.clientX; stick.oy = stick.y = e.clientY;
+  cv.setPointerCapture(e.pointerId);
+});
+cv.addEventListener('pointermove', e => { if (e.pointerId === stick.id){ stick.x = e.clientX; stick.y = e.clientY; } });
+const endStick = e => { if (e.pointerId === stick.id) stick.id = null; };
+cv.addEventListener('pointerup', endStick); cv.addEventListener('pointercancel', endStick);
+const digBtn = $('digBtn'), bonkBtn = $('bonkBtn');
+const press = el => { el.classList.remove('hit'); void el.offsetWidth; el.classList.add('hit'); };
+digBtn.addEventListener('pointerdown', e => { e.preventDefault(); playerDig(); });
+bonkBtn.addEventListener('pointerdown', e => { e.preventDefault(); playerBonk(); });
+
+const digPoint = d => ({x: d.x + Math.cos(d.dir)*26, y: d.y + Math.sin(d.dir)*26});
+function findTarget(d){
+  const p = digPoint(d); let best = null, bd = 30;
+  for (const b of buried.values()){ const dd = Math.hypot(b.x-p.x, b.y-p.y); if (dd < bd){ bd = dd; best = b; } }
+  return best;
+}
+function playerDig(){
+  if (!inGame || !me || me.stun) return;
+  press(digBtn);
+  if (!target){ digBtn.classList.remove('shake'); void digBtn.offsetWidth; digBtn.classList.add('shake'); return; }
+  thunk(); sendPos(true); send({t: 'dig'});
+}
+function canBonkSomething(){
+  if (!me || inMuseumZone(me.x, me.y, 10)) return false;
+  for (const g of magpies.values()) if (!g.stun && g.alt < 30 && Math.hypot(g.x-me.x, g.y-me.y) < 44) return true;
+  for (const o of diggers.values()){
+    if (o === me || inMuseumZone(o.x, o.y, 10)) continue;
+    const dd = dist(o, me); if (dd > 44) continue;
+    let da = Math.atan2(o.y-me.y, o.x-me.x) - me.dir; da = Math.atan2(Math.sin(da), Math.cos(da));
+    if (Math.abs(da) < 1.2 || dd < 22) return true;
+  }
+  return false;
+}
+function playerBonk(){
+  if (!inGame || !me || me.stun) return;
+  press(bonkBtn); me.swing = .25; sendPos(true); send({t: 'bonk'});
+}
+function sendPos(force){
+  const now = performance.now();
+  if (!force && now - lastSend < 50) return;
+  if (!force && Math.abs(me.x-sentX) < .5 && Math.abs(me.y-sentY) < .5 && Math.abs(me.dir-sentDir) < .02) return;
+  lastSend = now; sentX = me.x; sentY = me.y; sentDir = me.dir;
+  send({t: 'in', x: Math.round(me.x*10)/10, y: Math.round(me.y*10)/10, dir: Math.round(me.dir*100)/100});
+}
+function pushOut(d, x, y, min){
+  let dx = d.x - x, dy = d.y - y, dd = Math.hypot(dx, dy);
+  if (dd < min){ if (dd < .01){ dx = 1; dy = 0; dd = 1; } d.x = x + dx/dd*min; d.y = y + dy/dd*min; }
+}
+
+// ---------- update ----------
+function update(dt){
+  t += dt;
+  if (!inGame || !me) return;
+  let mx = 0, my = 0;
+  if (keys['arrowleft'] || keys['a']) mx--; if (keys['arrowright'] || keys['d']) mx++;
+  if (keys['arrowup'] || keys['w']) my--; if (keys['arrowdown'] || keys['s']) my++;
+  if (stick.id !== null){ const dx = stick.x - stick.ox, dy = stick.y - stick.oy, m = Math.hypot(dx, dy); if (m > 6){ const k = Math.min(1, m/55); mx = dx/m*k; my = dy/m*k; } }
+  const mag = Math.hypot(mx, my);
+  me.moving = mag > .05 && !me.stun;
+  if (me.moving){
+    if (mag > 1){ mx /= mag; my /= mag; }
+    const speed = 200 * (1 - Math.min(.45, me.bag.length*.05));
+    me.x += mx*speed*dt; me.y += my*speed*dt;
+    me.x = Math.max(50, Math.min(WORLD-50, me.x)); me.y = Math.max(50, Math.min(WORLD-50, me.y));
+    let a = Math.atan2(my, mx) - me.dir; a = Math.atan2(Math.sin(a), Math.cos(a)); me.dir += a*Math.min(1, dt*12);
+  }
+  for (let pass = 0; pass < 2; pass++) for (const h of holes) pushOut(me, h.x, h.y, h.r + 11);
+  sendPos(false);
+
+  // smooth everyone else towards the server's positions
+  const k = Math.min(1, dt*12);
+  for (const d of diggers.values()){
+    d.swing = Math.max(0, d.swing - dt);
+    if (d !== me && d.tx !== null){
+      d.x += (d.tx - d.x)*k; d.y += (d.ty - d.y)*k;
+      let a = d.tdir - d.dir; a = Math.atan2(Math.sin(a), Math.cos(a)); d.dir += a*k;
+    }
+    const sweep = d.dir + Math.sin(t*5 + d.id)*.55;
+    d.coil = {x: d.x + Math.cos(sweep)*30, y: d.y + Math.sin(sweep)*30};
+  }
+  for (const g of magpies.values()){
+    g.x += (g.tx - g.x)*k; g.y += (g.ty - g.y)*k; g.alt += (g.talt - g.alt)*k;
+    let a = g.tdir - g.dir; a = Math.atan2(Math.sin(a), Math.cos(a)); g.dir += a*k;
+    g.flap += dt*(g.alt < 20 ? 18 : 11);
+  }
+  for (const l of loose.values()) l.age += dt;
+
+  // detector
+  const coil = me.coil;
+  let nearB = null, nd = 210;
+  for (const b of buried.values()){ const dd = Math.hypot(b.x-coil.x, b.y-coil.y); if (dd < nd){ nd = dd; nearB = b; } }
+  signal += ((nearB ? 1 - nd/210 : 0) - signal) * Math.min(1, dt*10);
+  if (inMuseumZone(me.x, me.y, 20) || me.stun) signal = 0;
+  if (signal > .03 && nearB){
+    pulsePhase += dt/(1.1 - signal*.98);
+    if (pulsePhase >= 1){
+      pulsePhase -= 1;
+      const strong = signal > .5, T = TYPES[nearB.ti];
+      rings.push({x: coil.x, y: coil.y, t: 0, col: strong ? T.ring : '#e8f4cf'});
+      beep(strong ? T.base + signal*300 : 380 + signal*300, .07, strong ? T.tone : 'sine', .05 + signal*.05);
+    }
+  } else pulsePhase = .8;
+  target = me.stun ? null : findTarget(me);
+  digBtn.classList.toggle('ready', !!target);
+  bonkBtn.classList.toggle('ready', !me.stun && canBonkSomething());
+  digBtn.classList.toggle('off', !!me.stun); bonkBtn.classList.toggle('off', !!me.stun);
+
+  rings = rings.filter(r => (r.t += dt) < .6);
+  floats = floats.filter(f => (f.t += dt) < 1.6);
+  pops = pops.filter(p => (p.t += dt) < .6);
+  dirt = dirt.filter(p => { p.t += dt; p.x += p.vx*dt; p.y += p.vy*dt; p.vx *= .9; p.vy *= .9; return p.t < .5; });
+
+  $('bankedN').textContent = me.banked;
+  $('bagN').textContent = bagValue(me);
+  $('sigBar').style.width = (signal*100).toFixed(0) + '%';
+  $('sigBar').style.background = signal > .5 && nearB ? TYPES[nearB.ti].ring : '#cfe7a8';
+  const tl = Math.ceil(timeLeft);
+  $('timeN').textContent = `${Math.floor(tl/60)}:${String(tl%60).padStart(2, '0')}`;
+  $('timer').classList.toggle('low', timeLeft <= DUSK);
+  if (timeLeft <= DUSK && (update.lastTl ?? 999) > DUSK){ [392, 392].forEach((f, i) => setTimeout(() => beep(f, .6, 'triangle', .12), i*500)); floatAt(me.x, me.y - 60, '30 seconds to closing!', '#ffd447'); }
+  if (timeLeft <= 5 && Math.ceil(timeLeft) < Math.ceil(update.lastTl ?? 999)) beep(880, .12, 'square', .06);
+  update.lastTl = timeLeft;
+  if ((update.boardT = (update.boardT || 0) - dt) <= 0){
+    update.boardT = .3;
+    const html = [...diggers.values()].sort((a, b) => b.banked - a.banked)
+      .map(d => `<li class="${d === me ? 'me' : ''}"><span><i style="background:${d.col}"></i>${esc(d.name)}</span><span>${d.banked}</span></li>`).join('');
+    if ($('board').innerHTML !== html) $('board').innerHTML = html;
+  }
+}
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+// ---------- draw ----------
+const displayFont = '"Bowlby One SC", Impact, sans-serif';
+function drawMuseum(){
+  const {x, y, w, h} = MUSEUM, l = x - w/2, tp = y - h/2;
+  ctx.fillStyle = 'rgba(0,0,0,.18)'; ctx.fillRect(l+8, tp+10, w, h);
+  ctx.fillStyle = '#e9dfc6'; ctx.fillRect(l, tp, w, h);
+  ctx.fillStyle = '#b44a3a'; ctx.fillRect(l-8, tp-8, w+16, h*.62);
+  ctx.fillStyle = '#9a3d30'; ctx.fillRect(l-8, tp + h*.31 - 2, w+16, 4);
+  ctx.fillStyle = '#d8ccae';
+  for (let i = 0; i < 6; i++) ctx.fillRect(l + 14 + i*(w-34)/5, tp + h*.62, 10, h*.38 - 6);
+  ctx.fillStyle = '#5a3f25'; ctx.fillRect(x-18, y + h/2 - 30, 36, 30);
+  ctx.fillStyle = '#f4ecd4'; ctx.font = `400 20px ${displayFont}`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('MUSEUM', x, tp + h*.3 - 16);
+  ctx.font = '800 11px Nunito, sans-serif'; ctx.fillText('FINDS ACCEPTED HERE', x, tp + h*.3 + 14);
+  const glow = .35 + Math.sin(t*3)*.15;
+  ctx.strokeStyle = `rgba(240,189,52,${me && me.bag.length ? glow : .12})`; ctx.lineWidth = 4;
+  ctx.strokeRect(l-14, tp-14, w+28, h+28);
+}
+function drawDigger(d){
+  const wob = d.moving ? Math.sin(t*14 + d.id)*2 : 0;
+  ctx.save(); ctx.translate(d.x, d.y);
+  if (d.immune && !d.stun) ctx.globalAlpha = .55 + Math.sin(t*30)*.3;
+  ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.beginPath(); ctx.ellipse(3, 6, 17, 12, 0, 0, 7); ctx.fill();
+  const c = d.coil;
+  ctx.strokeStyle = '#2b2b2b'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(c.x-d.x, c.y-d.y); ctx.stroke();
+  ctx.fillStyle = '#1f1f1f'; ctx.beginPath(); ctx.ellipse(c.x-d.x, c.y-d.y, 9, 6, Math.atan2(c.y-d.y, c.x-d.x)+Math.PI/2, 0, 7); ctx.fill();
+  ctx.strokeStyle = '#e0742e'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.rotate(d.dir);
+  ctx.fillStyle = '#7a5532'; ctx.fillRect(-20, -10, 10, 20);
+  d.bag.slice(-6).forEach((ti, i) => { ctx.fillStyle = TYPES[ti].col; ctx.beginPath(); ctx.arc(-22 - (i%2)*5, -7 + i*3, 3.5, 0, 7); ctx.fill(); });
+  ctx.fillStyle = d.col; ctx.beginPath(); ctx.ellipse(0, 0, 12, 14, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = '#27331b'; ctx.fillRect(4 + wob, -9, 5, 5); ctx.fillRect(4 - wob, 4, 5, 5);
+  ctx.fillStyle = '#f0c9a0'; ctx.beginPath(); ctx.arc(2, 0, 7, 0, 7); ctx.fill();
+  ctx.fillStyle = d.bot ? '#3a3026' : '#5b6e2c'; ctx.beginPath(); ctx.arc(1, 0, 6.5, Math.PI*.5, Math.PI*1.5); ctx.fill();
+  if (d.swing > 0){
+    const k = 1 - d.swing/.25, a = -1.1 + k*2.2;
+    ctx.strokeStyle = '#8a6a44'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(Math.cos(a)*34, Math.sin(a)*34); ctx.stroke();
+    ctx.fillStyle = '#9aa4ad'; ctx.beginPath(); ctx.arc(Math.cos(a)*36, Math.sin(a)*36, 7, 0, 7); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(0, 0, 40, -1.1, a); ctx.stroke();
+  }
+  ctx.restore();
+  if (d.stun){
+    ctx.font = '800 12px Nunito, sans-serif'; ctx.fillStyle = '#ffe36b';
+    for (let i = 0; i < 3; i++){ const a = t*6 + i*2.1; ctx.fillText('★', d.x + Math.cos(a)*14, d.y - 22 + Math.sin(a)*5); }
+  }
+  if (d !== me){
+    const v = bagValue(d);
+    ctx.font = '800 11px Nunito, sans-serif'; ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(20,26,12,.8)';
+    const label = v ? `${d.name} · ${v}` : d.name;
+    ctx.strokeText(label, d.x, d.y - 30); ctx.fillStyle = v >= 100 ? '#ffd447' : v >= 40 ? '#eef6ff' : '#f4ecd4'; ctx.fillText(label, d.x, d.y - 30);
+  }
+}
+function drawMagpie(m){
+  const s = Math.max(.5, 1 - m.alt/120);
+  ctx.fillStyle = `rgba(0,0,0,${.25*s})`; ctx.beginPath(); ctx.ellipse(m.x, m.y, 12*s, 6*s, 0, 0, 7); ctx.fill();
+  ctx.save(); ctx.translate(m.x, m.y - m.alt); ctx.rotate(m.dir);
+  const w = Math.sin(m.flap)*.9;
+  ctx.fillStyle = '#1d2a3a'; ctx.fillRect(-26, -2.5, 14, 5);
+  ctx.fillStyle = '#111'; ctx.save(); ctx.scale(1, w || .01); ctx.beginPath(); ctx.ellipse(-2, 0, 7, 17, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = '#f2f2f2'; ctx.beginPath(); ctx.ellipse(-3, 0, 4, 9, 0, 0, 7); ctx.fill(); ctx.restore();
+  ctx.fillStyle = '#111'; ctx.beginPath(); ctx.ellipse(0, 0, 11, 5.5, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = '#f2f2f2'; ctx.beginPath(); ctx.ellipse(-2, 0, 5, 3, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(10, 0, 4.5, 0, 7); ctx.fill();
+  if (m.ti >= 0){ ctx.fillStyle = TYPES[m.ti].col; ctx.beginPath(); ctx.arc(16, 0, 4, 0, 7); ctx.fill(); }
+  ctx.restore();
+  if (m.stun){ ctx.fillStyle = '#ffe36b'; ctx.font = '800 12px Nunito, sans-serif'; ctx.fillText('★', m.x + Math.cos(t*8)*12, m.y - m.alt - 14); }
+}
+function draw(){
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const viewW = vw/scale, viewH = vh/scale;
+  const fx = me ? me.x : MUSEUM.x + Math.cos(t*.1)*300, fy = me ? me.y : MUSEUM.y + Math.sin(t*.1)*300;
+  const cx = Math.max(0, Math.min(WORLD - viewW, fx - viewW/2));
+  const cy = Math.max(0, Math.min(WORLD - viewH, fy - viewH/2));
+  ctx.fillStyle = '#2c4a1c'; ctx.fillRect(0, 0, vw, vh);
+  ctx.save(); ctx.scale(scale, scale); ctx.translate(-cx, -cy);
+  ctx.drawImage(bg, 0, 0);
+  for (const h of holes){
+    ctx.fillStyle = '#6e5232'; ctx.beginPath(); ctx.ellipse(h.x+4, h.y+3, h.r+5, h.r*.8+4, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = '#2e2014'; ctx.beginPath(); ctx.ellipse(h.x, h.y, h.r, h.r*.8, 0, 0, 7); ctx.fill();
+  }
+  for (const b of buried.values()) if (b.prog > 0){
+    const k = b.prog / TYPES[b.ti].taps;
+    ctx.fillStyle = '#5a4128'; ctx.beginPath(); ctx.ellipse(b.x, b.y, 6 + k*10, 5 + k*8, 0, 0, 7); ctx.fill();
+  }
+  if (target && inGame){
+    const k = target.prog / TYPES[target.ti].taps;
+    ctx.strokeStyle = 'rgba(255,255,255,.75)'; ctx.setLineDash([4, 4]); ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(target.x, target.y, 14, 0, 7); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillRect(target.x-22, target.y-30, 44, 7);
+    ctx.fillStyle = '#f0bd34'; ctx.fillRect(target.x-21, target.y-29, 42*k, 5);
+  }
+  drawMuseum();
+  for (const l of loose.values()){
+    const k = Math.min(1, l.age/.35), x = l.fx + (l.x-l.fx)*k, y = l.fy + (l.y-l.fy)*k - Math.sin(k*Math.PI)*22;
+    ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(l.x + 2, l.y + 3, 7, 4, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = TYPES[l.ti].col; ctx.beginPath(); ctx.arc(x, y, 7, 0, 7); ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,.45)'; ctx.lineWidth = 2; ctx.stroke();
+    if (k >= 1){ ctx.strokeStyle = `rgba(255,255,255,${.4 + Math.sin(t*8 + l.x)*.3})`; ctx.beginPath(); ctx.arc(x, y, 11 + Math.sin(t*6)*2, 0, 7); ctx.stroke(); }
+  }
+  for (const p of dirt){ ctx.fillStyle = `rgba(92,66,38,${1 - p.t*2})`; ctx.fillRect(p.x, p.y, 4, 4); }
+  for (const r of rings){
+    ctx.strokeStyle = r.col; ctx.globalAlpha = 1 - r.t/.6; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(r.x, r.y, 8 + r.t*90, 0, 7); ctx.stroke(); ctx.globalAlpha = 1;
+  }
+  for (const p of pops){
+    const k = p.t/.6, y = p.y - Math.sin(k*Math.PI)*40;
+    ctx.fillStyle = TYPES[p.ti].col; ctx.beginPath(); ctx.arc(p.x, y, 7, 0, 7); ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,.4)'; ctx.lineWidth = 2; ctx.stroke();
+  }
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  if (TYPES.length){
+    [...diggers.values()].filter(d => d.seen).sort((a, b) => a.y - b.y).forEach(drawDigger);
+    for (const g of magpies.values()) drawMagpie(g);
+  }
+  for (const f of floats){
+    ctx.globalAlpha = Math.max(0, Math.min(1, 2 - f.t*1.25));
+    ctx.font = f.big ? `400 24px ${displayFont}` : f.small ? '800 12px Nunito, sans-serif' : '800 15px Nunito, sans-serif';
+    ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(20,26,12,.85)';
+    ctx.strokeText(f.text, f.x, f.y - f.t*40); ctx.fillStyle = f.col; ctx.fillText(f.text, f.x, f.y - f.t*40);
+    ctx.globalAlpha = 1;
+  }
+  ctx.restore();
+  if (inGame && timeLeft < DUSK){
+    const k = 1 - timeLeft/DUSK;
+    ctx.fillStyle = `rgba(26,30,64,${k*.45})`; ctx.fillRect(0, 0, vw, vh);
+  }
+  if (stick.id !== null && inGame){
+    ctx.fillStyle = 'rgba(255,255,255,.12)'; ctx.beginPath(); ctx.arc(stick.ox, stick.oy, 55, 0, 7); ctx.fill();
+    const dx = stick.x - stick.ox, dy = stick.y - stick.oy, m = Math.hypot(dx, dy), k = m > 55 ? 55/m : 1;
+    ctx.fillStyle = 'rgba(255,255,255,.4)'; ctx.beginPath(); ctx.arc(stick.ox + dx*k, stick.oy + dy*k, 24, 0, 7); ctx.fill();
+  }
+}
+
+let last = performance.now();
+function frame(now){
+  const dt = Math.min(.05, (now - last)/1000); last = now;
+  update(dt); draw();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
