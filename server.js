@@ -161,7 +161,7 @@ const POWERS = {
 const COOP = {
   survive: { name: 'Survive', waves: 5 },             // hold out through five waves
   endless: { name: 'Endless', waves: Infinity },      // waves until everyone's down; beat your best
-  escape:  { name: 'Escape', time: 240, parts: 4 },   // carry engine parts to the bus before time runs out
+  escape:  { name: 'Escape', time: 300, parts: 5 },   // carry engine parts to the bus before time runs out, one at a time
 };
 const COOP_TEAM = 4, MAX_HP = 100, REVIVE_TIME = 2.5;
 const ZOMBIE = { // hp in bonks, speed, damage per hit, size
@@ -177,9 +177,10 @@ const COOP_NAMES = {
   4: ['Mystery box'],
   5: ['Engine part', 'Car battery', 'Fuel can', 'Spare wheel', 'Fan belt', 'Spark plugs'],
 };
-const COOP_HEAL = { 0: 10, 1: 30, 2: 60 };
+const COOP_HEAL = { 0: 8, 1: 20, 2: 45 };
+const COOP_ITEMS = 14; // supplies buried at once: kept scarce so health is worth fighting for
 const COOP_POWERS = ['q', 'k', 'w', 'h', 'h', 'q'];
-const coopType = () => { const r = Math.random(); return r < .4 ? 0 : r < .68 ? 1 : r < .8 ? 2 : r < .92 ? 3 : BOX; };
+const coopType = () => { const r = Math.random(); return r < .55 ? 0 : r < .8 ? 1 : r < .86 ? 2 : r < .95 ? 3 : BOX; };
 const BOX_POWERS = ['c', 't', 'w', 'm', 'l', 'r'], ALL_POWERS = Object.keys(POWERS).filter(k => k !== 'h');
 // Loadout: one powerup to start the round with, bought with coins on the player's phone
 const MAGNET_R = 170, STINK_R = 150, SHOCK_R = 85, TRAP_LIFE = 60;
@@ -255,7 +256,7 @@ class Room {
     if (this.host === null) this.host = c.id;
     this.send(ws, { t: 'hello', you: c.id });
     if (this.state === 'play') {
-      const d = this.makeDigger(c.id, c.name, c.col, false, Math.random() * 6, c.look, c.lvl); d.slots = acct ? accounts.slots(acct) : 1; if (this.isCoop()) { d.hp = MAX_HP; d.down = false; d.revive = 0; }
+      const d = this.makeDigger(c.id, c.name, c.col, false, Math.random() * 6, c.look, c.lvl); d.slots = acct ? accounts.slots(acct) : 1; if (this.isCoop()) { d.hp = MAX_HP; d.down = false; d.revive = 0; d.zk = d.rv = d.sup = d.dn = 0; }
       this.diggers.push(d);
       this.ev.push(['join', { id: d.id, name: d.name, col: d.col, bot: 0, look: d.look, lvl: d.lvl }]);
       this.send(ws, this.initMsg(c.id));
@@ -360,7 +361,7 @@ class Room {
     if (this.choice) this.mapId = this.choice; // back to what the host picked (the graveyard is Farmer's Field at Halloween)
     const ranked = this.diggers.filter(d => !d.npc).sort((a, b) => b.banked - a.banked);
     const coop = this.isCoop() ? this.coopResult || { mode: this.mode, won: false, wave: this.wave, kills: this.kills, parts: this.parts } : null; this.coopResult = null;
-    this.broadcast({ t: 'end', rank: ranked.map(d => [d.id, d.name, d.col, d.banked, d.isBot ? 1 : 0]), coop });
+    this.broadcast({ t: 'end', rank: ranked.map(d => [d.id, d.name, d.col, d.banked, d.isBot ? 1 : 0, coop ? [d.zk || 0, d.rv || 0, d.sup || 0, d.dn || 0] : undefined]), coop });
     if (coop) this.zombies = [];
     // coins and XP go onto each signed-in player's account
     for (const [ws, c] of this.clients) {
@@ -395,6 +396,7 @@ class Room {
       if (awayFromPlayers && this.humanNear(x, y, 400)) continue;
       if (this.buried.some(b => Math.hypot(b.x - x, b.y - y) < 60)) continue;
       if (this.inHole(x, y, 40)) continue;
+      if (this.mode === 'escape' && forceTi === HEAVY && Math.hypot(x - this.M.x, y - this.M.y) < (tries < 45 ? 800 : 550)) continue;
       let ti = forceTi != null ? forceTi : this.isCoop() ? coopType() : Math.random() < BOX_CHANCE ? BOX : pickTypeIdx();
       if (forceTi == null && ti < 3 && this.event && this.event.kind === 'goldrush') ti++;
       let name = this.itemName(ti);
@@ -472,7 +474,7 @@ class Room {
       this.ev.push(['heavy', h.id, Math.round(h.x), Math.round(h.y), h.name, d.id]);
       return; // a new heavy find is buried once this one is banked
     }
-    if (this.isCoop()) { this.coopSupply(d, item); this.spawnItem(true); return; }
+    if (this.isCoop()) { this.coopSupply(d, item); if (this.buried.filter(b => b.ti !== HEAVY).length < COOP_ITEMS / 2) this.spawnItem(true); return; }
     if (item.ti === BOX) this.givePower(d, pick(BOX_POWERS), 'box');
     else if (d.lucky > 0 && item.ti < 3) {
       d.lucky--;
@@ -1018,7 +1020,7 @@ class Room {
     d.moving = mag > 0.05 && d.stun <= 0;
     if (!d.moving) return;
     if (mag > 1) { mx /= mag; my /= mag; }
-    const speed = base * (1 - Math.min(0.45, d.bag.length * 0.05)) * (d.fx.w > 0 ? 1.3 : 1) * (d.carry ? (d.carry.carriers.length === 2 ? 0.7 : 0) : 1) * (this.underwater(d.y) ? 0.5 : 1);
+    const speed = base * (1 - Math.min(0.45, d.bag.length * 0.05)) * (d.fx.w > 0 ? 1.3 : 1) * (d.carry ? (d.carry.carriers.length === 2 ? (this.mode === 'escape' ? 0.55 : 0.7) : 0) : 1) * (this.underwater(d.y) ? 0.5 : 1);
     if (this.map.slippery) { // snow: you build up speed and slide to a stop; ice is worse
       const k = Math.min(1, dt * (this.onIce(d) ? 1.1 : 3.2));
       d.vx = (d.vx || 0) + (mx * speed - (d.vx || 0)) * k; d.vy = (d.vy || 0) + (my * speed - (d.vy || 0)) * k;
@@ -1230,12 +1232,12 @@ class Room {
   }
   // ===================== co-op zombie modes =====================
   coopStart() {
-    this.zombies = []; this.wave = 0; this.toSpawn = []; this.spawnT = 0; this.breakT = 8; this.kills = 0; this.parts = 0; this.zt = 0;
-    this.evPlan = []; this.magpieT = 1e9; this.crateT = 25;
+    this.zombies = []; this.wave = 0; this.toSpawn = []; this.spawnT = 0; this.bruteT = 35; this.waveDone = false; this.breakT = 8; this.kills = 0; this.parts = 0; this.zt = 0;
+    this.evPlan = []; this.magpieT = 1e9; this.crateT = 60;
     this.timeLeft = this.mode === 'escape' ? COOP.escape.time : 99999;
-    for (const d of this.diggers) { d.hp = MAX_HP; d.down = false; d.revive = 0; }
-    for (let i = 0; i < 45; i++) this.spawnItem(false);
-    if (this.mode === 'escape') for (let i = 0; i < 3; i++) this.spawnItem(false, HEAVY);
+    for (const d of this.diggers) { d.hp = MAX_HP; d.down = false; d.revive = 0; d.zk = d.rv = d.sup = d.dn = 0; }
+    for (let i = 0; i < COOP_ITEMS; i++) this.spawnItem(false);
+    if (this.mode === 'escape') this.spawnItem(false, HEAVY); // one part out there at a time, always a long way from the bus
   }
   coopInfo() {
     if (!this.isCoop()) return null;
@@ -1279,16 +1281,17 @@ class Room {
     const ang = Math.atan2(z.y - a.y, z.x - a.x), kb = z.kind === 'brute' ? 8 : 26;
     z.x += Math.cos(ang) * kb; z.y += Math.sin(ang) * kb; this.fit(z);
     if (z.hp > 0) { this.ev.push(['zhurt', z.id, a.id]); return; }
-    this.zombies.splice(this.zombies.indexOf(z), 1); this.kills++;
+    this.zombies.splice(this.zombies.indexOf(z), 1); this.kills++; a.zk = (a.zk || 0) + 1;
     a.banked += z.kind === 'brute' ? 50 : 10;
     this.ev.push(['zdie', z.id, a.id, Math.round(z.x), Math.round(z.y), ZOMBIE[z.kind].code]);
     this.stat(a.id, 'zkills');
-    if (Math.random() < (z.kind === 'brute' ? 1 : .12)) { // sometimes they drop something useful
-      const ti = z.kind === 'brute' ? 2 : 1, b = { id: this.uid++, x: z.x, y: z.y, ti, name: this.itemName(ti), prog: TYPES[ti].taps - 1 };
+    if (Math.random() < (z.kind === 'brute' ? .5 : .04)) { // now and then they drop something useful
+      const ti = z.kind === 'brute' ? 1 : 0, b = { id: this.uid++, x: z.x, y: z.y, ti, name: this.itemName(ti), prog: TYPES[ti].taps - 1 };
       if (!this.blocked(b.x, b.y)) { this.buried.push(b); this.ev.push(['spawn', b.id, Math.round(b.x), Math.round(b.y), ti, b.name, 0]); }
     }
   }
   coopSupply(d, item) {
+    d.sup = (d.sup || 0) + 1;
     if (COOP_HEAL[item.ti] != null) {
       const before = d.hp; d.hp = Math.min(MAX_HP, d.hp + COOP_HEAL[item.ti]); d.banked += 5;
       this.ev.push(['supply', d.id, 'heal', Math.round(d.hp - before), item.name]);
@@ -1302,7 +1305,7 @@ class Room {
   }
   knockDown(d) {
     if (d.down) return;
-    d.down = true; d.hp = 0; d.revive = 0; d.stun = 1;
+    d.down = true; d.hp = 0; d.revive = 0; d.stun = 1; d.dn = (d.dn || 0) + 1;
     if (d.carry) this.unlift(d);
     this.ev.push(['down', d.id]);
   }
@@ -1310,8 +1313,8 @@ class Room {
     this.zt += dt;
     // ----- waves (Survive and Endless) or a steady stream (Escape) -----
     if (this.mode === 'escape') {
-      if ((this.spawnT -= dt) <= 0) { this.spawnT = Math.max(1.4, 4.5 - this.zt / 50); if (this.zombies.length < 40) this.spawnZombie(this.zt > 60 && Math.random() < .3 ? 'runner' : 'walker'); }
-      if ((this.bruteT = (this.bruteT ?? 50) - dt) <= 0) { this.bruteT = 45; this.spawnZombie('brute'); }
+      if ((this.spawnT -= dt) <= 0) { this.spawnT = Math.max(1, 3 - this.zt / 80); if (this.zombies.length < 40) this.spawnZombie(this.zt > 60 && Math.random() < .3 ? 'runner' : 'walker'); }
+      if ((this.bruteT = (this.bruteT ?? 35) - dt) <= 0) { this.bruteT = 40; this.spawnZombie('brute'); }
     } else {
       if (this.toSpawn.length) { if ((this.spawnT -= dt) <= 0) { this.spawnT = .7; if (this.spawnZombie(this.toSpawn[0])) this.toSpawn.shift(); } }
       else if (!this.zombies.length) {
@@ -1321,8 +1324,8 @@ class Room {
           if (this.mode === 'endless') for (const d of this.team()) this.stat(d.id, 'zwaveBest', this.wave, 'max');
           this.ev.push(['wavedone', this.wave]);
           if (this.mode === 'survive' && this.wave >= COOP.survive.waves) { this.flush(); this.coopEnd(true); return; }
-          for (const d of this.team()) if (d.down) { d.down = false; d.hp = 40; d.stun = 0; this.ev.push(['revived', d.id, 0]); } else d.hp = Math.min(MAX_HP, d.hp + 25); // a breather patches everyone up
-          for (let i = 0; i < 8; i++) this.spawnItem(false);
+          for (const d of this.team()) if (d.down) { d.down = false; d.hp = 40; d.stun = 0; this.ev.push(['revived', d.id, 0]); } else d.hp = Math.min(MAX_HP, d.hp + 10); // a breather patches everyone up a little
+          for (let i = this.buried.filter(b => b.ti !== HEAVY).length; i < COOP_ITEMS; i++) this.spawnItem(false); // topped back up between waves
         }
         if ((this.breakT -= dt) <= 0) { this.waveDone = false; this.startWave(); }
       }
@@ -1342,7 +1345,7 @@ class Room {
       z.x += Math.cos(ang) * sp * dt; z.y += Math.sin(ang) * sp * dt;
       let da = ang - z.dir; da = Math.atan2(Math.sin(da), Math.cos(da)); z.dir += da * Math.min(1, dt * 6);
       for (const o of this.zombies) if (o !== z) { const dd = dist(o, z), min = (Z.r + ZOMBIE[o.kind].r) * .8; if (dd < min && dd > 0.01) { z.x += (z.x - o.x) / dd * (min - dd) * .5; z.y += (z.y - o.y) / dd * (min - dd) * .5; } }
-      this.fit(z);
+      this.fit(z); if (z.y > this.sea + 30) z.y = this.sea + 30; // they can only wade so far
       if (bd < Z.r + 13 && z.hitCd <= 0 && z.scared <= 0) { // bite
         z.hitCd = 1; tg.hp -= Z.dmg;
         const ka = Math.atan2(tg.y - z.y, tg.x - z.x); tg.x += Math.cos(ka) * 12; tg.y += Math.sin(ka) * 12; this.fit(tg);
@@ -1358,8 +1361,8 @@ class Room {
         d.stun = .5;
         const helpers = this.diggers.filter(o => o !== d && !o.down && !o.npc && dist(o, d) < 40).length;
         d.revive = helpers ? d.revive + dt * helpers : Math.max(0, d.revive - dt * .5);
-        if (d.revive >= REVIVE_TIME) { d.down = false; d.hp = 40; d.revive = 0; d.stun = 0; this.ev.push(['revived', d.id, 1]); for (const o of this.diggers) if (o !== d && !o.down && dist(o, d) < 40) { o.banked += 25; this.stat(o.id, 'revives'); } }
-      } else if (this.inMuseum(d.x, d.y, 10) && d.hp < MAX_HP) d.hp = Math.min(MAX_HP, d.hp + dt * 4);
+        if (d.revive >= REVIVE_TIME) { d.down = false; d.hp = 40; d.revive = 0; d.stun = 0; this.ev.push(['revived', d.id, 1]); for (const o of this.diggers) if (o !== d && !o.down && dist(o, d) < 40) { o.banked += 25; o.rv = (o.rv || 0) + 1; this.stat(o.id, 'revives'); } }
+      } else if (this.inMuseum(d.x, d.y, 10) && d.hp < 50) d.hp = Math.min(50, d.hp + dt * 1); // the Museum only patches you up to half, slowly
     }
     if (this.team().every(d => d.down)) { this.flush(); this.coopEnd(false); }
   }
@@ -1380,7 +1383,9 @@ class Room {
       const h = this.heavies.find(x => x.carriers.length < 2 && !x.carriers.includes(b) && dist(x, b) < 900);
       if (h) { if (dist(h, b) > 50) return go(h.x, h.y, 165); this.lift(b, h); return; }
     }
-    if (!ai.target || !this.buried.includes(ai.target)) { let best = null, bdd = 1e9; for (const it of this.buried) { const dd = dist(it, b) * (it.ti === HEAVY && this.mode !== 'escape' ? 9 : 1); if (dd < bdd) { bdd = dd; best = it; } } ai.target = best; }
+    if (this.underwater(b.y, 15) && !b.carry) return go(b.x, this.sea - 120, 150); // out of the sea
+    if (ai.target && this.underwater(ai.target.y, 20)) ai.target = null;
+    if (!ai.target || !this.buried.includes(ai.target)) { let best = null, bdd = 1e9; for (const it of this.buried) { if (this.underwater(it.y, 20)) continue; const dd = dist(it, b) * (it.ti === HEAVY && this.mode !== 'escape' ? 9 : 1); if (dd < bdd) { bdd = dd; best = it; } } ai.target = best; }
     const it = ai.target; if (!it) { b.moving = false; return; }
     if (dist(it, b) > 26) return go(it.x, it.y, 140);
     b.moving = false; if ((ai.digT = (ai.digT || 0) - dt) <= 0) { ai.digT = .45; this.digAt(b, it); }
@@ -1429,7 +1434,7 @@ class Room {
       d: this.diggers.map(d => [d.id, Math.round(d.x), Math.round(d.y), Math.round(d.dir * 100) / 100, d.stun > 0 ? 1 : 0, d.immune > 0 ? 1 : 0,
         d.bag.map(b => b.ti).join(''), d.banked, d.moving ? 1 : 0, d.held.length > 1 ? d.held.join('') + ':' + d.sel : d.power || '',
         Object.keys(d.fx).map(k => k + Math.ceil(d.fx[k])).join('') + (d.padlock ? 'p' : '') + (d.lucky > 0 ? 'l' + d.lucky : '') + (d.tired > 0 ? 'z' + Math.ceil(d.tired) : ''),
-        d.hp != null ? Math.ceil(d.hp) : -1, d.down ? 1 + Math.round(Math.min(1, d.revive / REVIVE_TIME) * 99) : 0]),
+        d.hp != null ? Math.ceil(d.hp) : -1, d.down ? 1 + Math.round(Math.min(1, d.revive / REVIVE_TIME) * 99) : 0, d.zk || 0, d.rv || 0]),
       z: this.zombies && this.zombies.length ? this.zombies.map(z => [z.id, Math.round(z.x), Math.round(z.y), Math.round(z.dir * 100) / 100, z.hp, z.max, ZOMBIE[z.kind].code, z.stun > 0 ? 1 : 0]) : undefined,
       co: this.isCoop() ? this.coopInfo() : undefined,
       hv: this.heavies.map(h => [h.id, Math.round(h.x), Math.round(h.y), h.carriers.map(c => c.id).join(','), h.hp, Math.ceil(h.wait)]),

@@ -260,6 +260,9 @@ canvas.stage{width:100%;height:auto;border-radius:12px;display:block;margin-bott
 .panel .modePick button:disabled:not(.on){opacity:.45}
 .panel .modePick button:disabled{opacity:1}
 #end .modeNote{display:none}
+#endList li.hasStats{flex-wrap:wrap}
+#endList li.hasStats em{margin-left:auto}
+#endList .coStats{order:9;flex-basis:100%;padding-left:22px;font:700 12px Nunito,sans-serif;color:#6a7458;margin-top:2px}
 .modeNote{font:700 12px Nunito,sans-serif;color:#5a6b48;margin:-2px 0 10px;min-height:16px}
 .panel .seg.four{grid-template-columns:1fr 1fr 1fr 1fr}
 .panel .seg.four button{font-size:13px;padding-left:2px;padding-right:2px}
@@ -711,7 +714,7 @@ const COOP_MODES = {survive: 'Survive', endless: 'Endless', escape: 'Escape'};
 const MODE_NOTE = {classic: 'Find treasure, bank it at the Museum, bonk anyone carrying loot.',
   survive: 'Team up against five waves of zombies. Dig up food and medicine to heal, bonk zombies, pick each other up.',
   endless: 'Wave after wave until the whole team is down. Your best wave goes on the Zombies leaderboard.',
-  escape: 'Dig up 4 engine parts (two people carry each one) and get them to the bus at the Museum before time runs out.'};
+  escape: 'Dig up 5 engine parts, one at a time, far from the bus. Two people carry each one back to the bus at the Museum before time runs out.'};
 const coop = () => !!COOP_MODES[MODE];
 const dark = () => spooky() || coop();
 let THEME = '', CIRCLE = null, OBST = [], ICE = null, SLIPPERY = false, keeper = null, skiers = [], snowT = 0;
@@ -814,6 +817,7 @@ function paintTree(g, o, rnd){
   for (const [dx, dy, k, c] of [[0, 0, 1.25, '#2f6b2a'], [-o.r*.35, -o.r*.3, .8, '#3d8236'], [o.r*.3, -o.r*.2, .75, '#3a7c33'], [-o.r*.1, -o.r*.45, .55, '#4f9a45']]){
     g.fillStyle = c; g.beginPath(); g.arc(o.x + dx, o.y + dy, o.r*k, 0, 7); g.fill(); }
 }
+const inPond = (x, y, pad = 20) => OBST.some(o => o.kind === 'pond' && Math.hypot(o.x - x, o.y - y) < o.r + pad);
 function paintPark(){
   bg.width = bg.height = WORLD;
   const g = bg.getContext('2d'), C = CIRCLE;
@@ -855,7 +859,7 @@ function paintPark(){
     g.fillStyle = '#f4ecd4'; g.beginPath(); g.ellipse(o.x - 30, o.y + 10, 10, 6, 0, 0, 7); g.fill(); g.beginPath(); g.arc(o.x - 22, o.y + 4, 4, 0, 7); g.fill(); // a swan
   }
   // benches along the ring path
-  for (let i = 0; i < 10; i++){ const a = i/10*Math.PI*2, x = C.x + Math.cos(a)*(C.r*.55 + 36), y = C.y + Math.sin(a)*(C.r*.55 + 36);
+  for (let i = 0; i < 10; i++){ const a = i/10*Math.PI*2, x = C.x + Math.cos(a)*(C.r*.55 + 36), y = C.y + Math.sin(a)*(C.r*.55 + 36); if (inPond(x, y)) continue;
     g.save(); g.translate(x, y); g.rotate(a + Math.PI/2); g.fillStyle = '#7a5230'; g.fillRect(-16, -5, 32, 10); g.fillStyle = '#5a3a1c'; g.fillRect(-16, -8, 32, 3); g.restore(); }
   g.fillStyle = '#c9b993'; g.beginPath(); g.arc(MUSEUM.x, MUSEUM.y, 170, 0, 7); g.fill();
   g.restore();
@@ -1026,11 +1030,12 @@ function detailBeach(){
 function detailPark(){
   const g = bg.getContext('2d'), rnd = seeded(303), C = CIRCLE;
   g.save(); g.beginPath(); g.arc(C.x, C.y, C.r, 0, 7); g.clip();
+  g.save(); { g.beginPath(); g.rect(0, 0, WORLD, WORLD); for (const o of OBST) if (o.kind === 'pond'){ g.moveTo(o.x + o.r + 14, o.y); g.arc(o.x, o.y, o.r + 14, 0, Math.PI*2); } g.clip('evenodd'); } // nothing drawn over the pond
   for (let i = 0; i < 260; i++){ const a = rnd()*7, d = Math.sqrt(rnd())*C.r, x = C.x + Math.cos(a)*d, y = C.y + Math.sin(a)*d; if (!clearOfMuseum(x, y, 60)) continue; daisy(g, x, y, 1.5, '#ffffff', '#f2c230'); }
   g.strokeStyle = 'rgba(140,125,95,.8)'; g.lineWidth = 2; g.setLineDash([6, 4]);
   for (const r of [C.r*.55 - 21, C.r*.55 + 21]){ g.beginPath(); g.arc(C.x, C.y, r, 0, 7); g.stroke(); }
   for (const a of [Math.PI/4, -Math.PI/4]) for (const off of [-21, 21]){ const nx = -Math.sin(a)*off, ny = Math.cos(a)*off; g.beginPath(); g.moveTo(C.x - Math.cos(a)*C.r + nx, C.y - Math.sin(a)*C.r + ny); g.lineTo(C.x + Math.cos(a)*C.r + nx, C.y + Math.sin(a)*C.r + ny); g.stroke(); }
-  g.setLineDash([]);
+  g.setLineDash([]); g.restore();
   for (let i = 0; i < 6; i++){ const a = rnd()*7, d = C.r*(.25 + rnd()*.6), x = C.x + Math.cos(a)*d, y = C.y + Math.sin(a)*d; if (!clearOfMuseum(x, y, 90) || OBST.some(o => Math.hypot(o.x - x, o.y - y) < o.r + 40)) continue;
     g.save(); g.translate(x, y); g.rotate(rnd()*1.5); const c = ['#d63031', '#2d5f9e', '#e67e22'][i % 3];
     g.fillStyle = 'rgba(0,0,0,.15)'; g.fillRect(-20, -14, 44, 32); g.fillStyle = '#ffffff'; g.fillRect(-22, -16, 44, 32);
@@ -1041,7 +1046,7 @@ function detailPark(){
     for (const [dx, dy] of [[-60, 40], [50, -70], [70, 50]]) daisy(g, o.x + dx + 4, o.y + dy - 2, 1.8, '#ffd1e0', '#f2c230');
     for (const [dx, dy] of [[40, 20], [52, 28], [-20, -50]]){ g.fillStyle = '#7a5a3a'; g.beginPath(); g.ellipse(o.x + dx, o.y + dy, 6, 4, 0, 0, 7); g.fill(); g.fillStyle = '#2f6b45'; g.beginPath(); g.arc(o.x + dx + 5, o.y + dy - 1, 2.6, 0, 7); g.fill(); g.fillStyle = '#f2a33a'; g.fillRect(o.x + dx + 7, o.y + dy - 1.6, 2.5, 1.4); }
   }
-  for (let i = 0; i < 12; i++){ const a = i/12*Math.PI*2 + .13, x = C.x + Math.cos(a)*(C.r*.55 - 30), y = C.y + Math.sin(a)*(C.r*.55 - 30);
+  for (let i = 0; i < 12; i++){ const a = i/12*Math.PI*2 + .13, x = C.x + Math.cos(a)*(C.r*.55 - 30), y = C.y + Math.sin(a)*(C.r*.55 - 30); if (inPond(x, y)) continue;
     g.fillStyle = 'rgba(0,0,0,.2)'; g.beginPath(); g.arc(x + 4, y + 4, 7, 0, 7); g.fill(); g.fillStyle = '#1e2a20'; g.beginPath(); g.arc(x, y, 5.5, 0, 7); g.fill(); g.fillStyle = '#fff3c4'; g.beginPath(); g.arc(x, y, 2.6, 0, 7); g.fill();
     if (i % 3 === 0){ const bx = x + Math.cos(a)*16, by = y + Math.sin(a)*16; g.fillStyle = '#2f5d3a'; g.beginPath(); g.arc(bx, by, 5, 0, 7); g.fill(); g.fillStyle = '#1e3a26'; g.beginPath(); g.arc(bx, by, 3, 0, 7); g.fill(); } }
   g.restore();
@@ -1748,9 +1753,9 @@ function applySnap(m){
     }
     seaT = m.sea;
   }
-  for (const [id, x, y, dir, stun, immune, bag, banked, moving, power, fx, hp, down] of m.d){
+  for (const [id, x, y, dir, stun, immune, bag, banked, moving, power, fx, hp, down, zk, rv] of m.d){
     const d = diggers.get(id); if (!d) continue;
-    d.hp = hp ?? -1; d.down = down || 0;
+    d.hp = hp ?? -1; d.down = down || 0; d.zk = zk || 0; d.rv = rv || 0;
     d.stun = stun; d.immune = immune; d.bag = bag ? bag.split('').map(Number) : []; d.banked = banked;
     { const [hs, si] = String(power || '').split(':'); d.held = hs ? hs.split('') : []; d.sel = +si || 0; d.power = d.held[d.sel] || ''; } d.fx = {}; for (const [, k, n] of (fx || '').matchAll(/([a-z])(\d*)/g)) d.fx[k] = n ? +n : 1;
     if (d === me){ if (!d.seen){ d.x = x; d.y = y; d.dir = dir; d.seen = true; } continue; }
@@ -2064,19 +2069,21 @@ function endRound(m){
   const lost = me ? bagValue(me) : 0;
   const [wid, wname] = m.rank[0] || [];
   const co = m.coop;
-  $('endTitle').textContent = co ? (co.mode === 'escape' ? (co.won ? 'You escaped!' : co.parts >= 4 ? 'You escaped!' : 'The bus never left') : co.won ? 'You survived!' : co.mode === 'endless' ? `Overrun on wave ${co.wave}` : `Overrun on wave ${co.wave} of 5`)
+  $('endTitle').textContent = co ? (co.mode === 'escape' ? (co.won ? 'You escaped!' : 'The bus never left') : co.won ? 'You survived!' : co.mode === 'endless' ? `Overrun on wave ${co.wave}` : `Overrun on wave ${co.wave} of 5`)
     : !m.rank.length || m.rank[0][3] === 0 ? 'Nobody banked a thing' : wid === myId ? 'You win!' : `${wname} wins`;
   document.querySelector('#end .tag').textContent = co ? `Zombies: ${COOP_MODES[co.mode] || ''}` : 'The Museum is closed';
   $('downMsg').hidden = true;
   $('endList').innerHTML = '';
-  for (const [id, name, col, banked, bot] of m.rank){
+  for (const [id, name, col, banked, bot, st] of m.rank){
     const li = document.createElement('li');
     const dot = document.createElement('i'); dot.style.background = col; li.append(dot);
     li.append(document.createTextNode(name + (id === myId ? ' (you)' : bot ? ' (bot)' : '')));
+    if (st){ const sm = document.createElement('small'); sm.className = 'coStats'; const [zk, rv, sup, dn] = st;
+      sm.textContent = `${zk} kill${zk === 1 ? '' : 's'} · ${rv} revive${rv === 1 ? '' : 's'} · ${sup} suppl${sup === 1 ? 'y' : 'ies'} · down ${dn}×`; li.append(sm); li.classList.add('hasStats'); }
     const em = document.createElement('em'); em.textContent = banked; em.style.fontSize = '15px'; em.style.fontWeight = '800'; em.style.color = 'var(--ink)'; li.append(em);
     $('endList').append(li);
   }
-  $('endNote').textContent = co ? `${co.kills} zombies bonked` + (co.mode === 'escape' ? ` · ${co.parts} of 4 bus parts fitted` : ` · reached wave ${co.wave}`) + (co.won ? '. Winners get the full reward.' : '. Scores are kills, revives and supplies.')
+  $('endNote').textContent = co ? `${co.kills} zombies bonked` + (co.mode === 'escape' ? ` · ${co.parts} of 5 bus parts fitted` : ` · reached wave ${co.wave}`) + (co.won ? '. Winners get the full reward.' : '. Scores are kills, revives and supplies.')
     : lost ? `You were still carrying ${lost} when the doors locked. That’s gone.` : 'You banked everything before closing.';
   $('reward').innerHTML = profile ? '<p class="note">Adding up your coins and XP&hellip;</p>' : '<p class="note">Playing as a guest, so nothing was saved. Sign in on the start screen to earn coins and XP.</p>';
   const w = diggers.get(wid);
@@ -2440,7 +2447,7 @@ function update(dt){
     update.boardT = .3;
     const ranked = [...diggers.values()].filter(d => !d.npc).sort((a, b) => b.banked - a.banked), pos = ranked.indexOf(me) + 1;
     const html = boardMini ? `<li class="mini"><span>${pos}${['th','st','nd','rd'][(pos % 100 > 10 && pos % 100 < 14) || pos % 10 > 3 ? 0 : pos % 10]} of ${ranked.length}</span><span>${me.banked}</span></li>` : ranked
-      .map(d => `<li class="${d === me ? 'me' : ''}"><span><i style="background:${d.col}"></i>${esc(d.name)}${d.lvl ? ' <small style="opacity:.6">' + d.lvl + '</small>' : ''}</span><span>${d.banked}</span></li>`).join('');
+      .map(d => `<li class="${d === me ? 'me' : ''}"><span><i style="background:${d.col}"></i>${esc(d.name)}${coop() ? ' <small style="opacity:.7">' + d.zk + 'K ' + d.rv + 'R</small>' : d.lvl ? ' <small style="opacity:.6">' + d.lvl + '</small>' : ''}</span><span>${d.banked}</span></li>`).join('');
     if ($('board').innerHTML !== html) $('board').innerHTML = html;
   }
 }
