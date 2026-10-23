@@ -168,8 +168,11 @@ function turnTo(d, want, dt) { let a = want - d.dir; a = Math.atan2(Math.sin(a),
 
 // ---------- a match ----------
 class Room {
-  constructor(code) {
+  constructor(code, opts = {}) {
     this.code = code;
+    this.public = !!opts.public;     // Quick Play: anyone can drop in, rounds start on their own
+    this.tutorial = !!opts.tutorial; // one player, a practice dummy, no surprises
+    this.autoT = null;
     this.clients = new Map(); // ws -> {id, name, col}
     this.state = 'lobby';
     this.host = null;
@@ -188,7 +191,7 @@ class Room {
   send(ws, obj) { if (ws.readyState === 1) ws.send(JSON.stringify(obj)); }
   broadcast(obj) { const s = JSON.stringify(obj); for (const ws of this.clients.keys()) if (ws.readyState === 1) ws.send(s); }
   lobbyMsg() {
-    this.broadcast({ t: 'lobby', code: this.code, host: this.host, state: this.state, map: this.mapId,
+    this.broadcast({ t: 'lobby', code: this.code, host: this.host, state: this.state, map: this.mapId, public: this.public ? 1 : 0, auto: this.autoT != null ? Math.ceil(this.autoT) : null,
       players: [...this.clients.values()].map(c => ({ id: c.id, name: c.name, col: c.col, lvl: c.lvl, guest: !c.acct })) });
   }
   addClient(ws, name, rawLook, acct) {
@@ -261,11 +264,21 @@ class Room {
       if (got.length) this.send(ws, { t: 'profile', profile: accounts.profile(c.acct), ach: got.map(x => x.id) });
       this.stat(c.id, 'maps', this.mapId, 'set');
     }
-    const bots = Math.max(0, MIN_DIGGERS - humans.length);
+    const bots = this.tutorial ? 0 : Math.max(0, MIN_DIGGERS - humans.length);
     for (let i = 0; i < bots; i++) { const [n, col] = BOTS[i]; this.diggers.push(this.makeDigger(1000 + i, n, col, true, humans.length + i)); }
+    if (this.tutorial){ // a practice dummy who stands still holding a find, a little way from the Museum
+      const d = this.makeDigger(1000, 'Practice Pete', '#8a6d3b', true, 0, { hat: 'cap', jacket: 'auto', boots: 'green', pack: 'canvas', pet: 'none', trail: 'none', det: 'retro', spade: 'old', win: 'confetti' }, 1);
+      d.dummy = true; d.x = this.M.x + 260; d.y = this.M.y + 60; d.dir = Math.PI; d.bag = [{ ti: 1, name: 'Brass button' }]; this.diggers.push(d);
+    }
     for (const d of this.diggers) this.fit(d);
+    if (this.tutorial){ // a few easy finds just below the Museum, and plenty more around
+      for (const [dx, dy, ti] of [[-120, 230, 1], [60, 300, 0], [180, 220, 1], [-60, 380, 2]]){ const b = { id: this.uid++, x: this.M.x + dx, y: this.M.y + dy, ti, name: this.itemName(ti), prog: 0 }; this.fit(b); this.buried.push(b); }
+      for (let i = 0; i < 25; i++) this.spawnItem(false);
+      this.evPlan = []; this.timeLeft = 600; this.crateT = 1e9; this.magpieT = 1e9;
+    } else {
     for (let i = 0; i < ITEMS; i++) this.spawnItem(false);
     for (let i = 0; i < HEAVIES; i++) this.spawnItem(false, HEAVY);
+    }
     if (this.map.wreck) for (let i = 0; i < WRECK_ITEMS; i++) this.spawnWreckItem();
     this.ev = []; this.traps = [];
     this.state = 'play';
@@ -288,7 +301,7 @@ class Room {
       heavies: this.heavies.map(h => [h.id, Math.round(h.x), Math.round(h.y), h.name, h.carriers.map(c => c.id).join(','), h.hp, Math.ceil(h.wait)]) };
   }
   end() {
-    this.state = 'end';
+    this.state = 'end'; this.autoT = null;
     const ranked = this.diggers.filter(d => !d.npc).sort((a, b) => b.banked - a.banked);
     this.broadcast({ t: 'end', rank: ranked.map(d => [d.id, d.name, d.col, d.banked, d.isBot ? 1 : 0]) });
     // coins and XP go onto each signed-in player's account
@@ -1058,6 +1071,14 @@ class Room {
 
   // ----- tick -----
   tick(dt) {
+    // Quick Play rooms start on their own: 10s after the first player arrives, 15s after a round ends
+    if (this.public && this.state !== 'play' && this.clients.size){
+      const before = this.autoT == null ? null : Math.ceil(this.autoT);
+      if (this.autoT == null) this.autoT = this.state === 'end' ? 15 : 10;
+      this.autoT -= dt;
+      if (this.autoT <= 0){ this.autoT = null; this.mapId = pick(Object.keys(MAPS)); this.start(); return; }
+      if (Math.ceil(this.autoT) !== before) this.lobbyMsg();
+    }
     if (this.state !== 'play') return;
     this.t += dt; this.timeLeft -= dt;
     if (this.timeLeft <= 0) { this.timeLeft = 0; this.flush(); this.end(); return; }
@@ -1073,7 +1094,8 @@ class Room {
       d.bonkCd = Math.max(0, d.bonkCd - dt); d.swing = Math.max(0, d.swing - dt);
       // where everyone was over the last moment, so a bonk can be judged against what the bonker saw
       (d.hist || (d.hist = [])).push([this.t, d.x, d.y]); while (d.hist.length && d.hist[0][0] < this.t - BONK_REWIND) d.hist.shift();
-      if (d.isBot) this.botThink(d, dt);
+      if (d.dummy){ if (!d.bag.length && (d.rearm = (d.rearm || 4) - dt) <= 0){ d.rearm = 0; d.bag.push({ ti: 1, name: 'Brass button' }); } }
+      else if (d.isBot) this.botThink(d, dt);
       if (d.bag.length && this.inMuseum(d.x, d.y)) {
         const v = bagValue(d); d.banked += v; d.bag = [];
         this.ev.push(['bank', d.id, v]);
@@ -1319,17 +1341,23 @@ function onConnection(ws) {
         room = rooms.get(code);
         if (!room) { joining = false; ws.send(JSON.stringify({ t: 'error', msg: `No game with code ${code}. Check the code or create a new game.` })); return; }
         if (room.clients.size >= MAX_PLAYERS) { room = null; joining = false; ws.send(JSON.stringify({ t: 'error', msg: 'That game is full (8 players).' })); return; }
+      } else if (msg.quick) { // the busiest open Quick Play game, or a fresh one
+        room = [...rooms.values()].filter(r => r.public && r.clients.size < MAX_PLAYERS).sort((a, b) => b.clients.size - a.clients.size)[0];
+        if (!room){ code = newCode(); room = new Room(code, { public: true }); room.mapId = pick(Object.keys(MAPS)); rooms.set(code, room); }
+      } else if (msg.tutorial) {
+        code = newCode(); room = new Room(code, { tutorial: true }); rooms.set(code, room);
       } else {
         code = newCode(); room = new Room(code); rooms.set(code, room);
       }
       room.addClient(ws, name, msg.look, acct);
       me = room.clients.get(ws).id;
+      if (room.tutorial) room.start();
       return;
     }
     if (!room) return;
-    if (msg.t === 'start') { if (me === room.host && room.state !== 'play') room.start(); return; }
+    if (msg.t === 'start') { if (me === room.host && room.state !== 'play' && !room.public) room.start(); return; }
     if (msg.t === 'look') { room.setLook(me, msg.look); return; }
-    if (msg.t === 'map') { if (me === room.host) room.setMap(String(msg.id)); return; }
+    if (msg.t === 'map') { if (me === room.host && !room.public) room.setMap(String(msg.id)); return; }
     room.onInput(me, msg);
   });
   ws.on('close', () => {

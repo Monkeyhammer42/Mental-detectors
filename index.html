@@ -189,6 +189,21 @@ canvas.stage{width:100%;height:auto;border-radius:12px;display:block;margin-bott
 #banner span{display:block;font-size:13px;font-weight:800;margin-top:3px;color:var(--paper)}
 #codeBox,#pickName{z-index:5}
 #achv{z-index:7}
+.panel button.tutBtn{margin-top:10px;font-size:15px;padding:10px;display:flex;justify-content:center;align-items:center;gap:8px}
+.newTag{font:800 10px var(--body);letter-spacing:.08em;background:var(--dig);color:var(--paper);border-radius:6px;padding:2px 6px}
+#coach{position:absolute;z-index:3;left:50%;transform:translateX(-50%);top:calc(150px + env(safe-area-inset-top,0px));width:min(340px,calc(100% - 24px));
+  background:linear-gradient(180deg,#faf4e2,#f1e7cb);color:var(--ink);border-radius:16px;padding:12px 14px 10px;box-shadow:0 10px 30px rgba(0,0,0,.4);animation:popIn .3s cubic-bezier(.2,1.3,.4,1)}
+#coach small{display:flex;justify-content:space-between;font:800 10px var(--body);letter-spacing:.12em;text-transform:uppercase;color:#8a4a1c}
+#coach small button{border:0;background:none;color:#6d5f38;font:800 11px var(--body);text-decoration:underline;padding:0;pointer-events:auto}
+#coach b{display:block;font:400 18px var(--display);color:#2f4a1c;margin:3px 0 2px}
+#coach p{margin:0;font-size:13px;line-height:1.4}
+#coach .dots{display:flex;gap:5px;margin-top:8px}
+#coach .dots i{flex:1;height:5px;border-radius:3px;background:#d6caa8}
+#coach .dots i.on{background:#3f5a2a}
+#coach .row2{margin-top:10px}
+#coach .row2 button{flex:1;padding:10px;border:0;border-radius:10px;font:400 15px var(--display);color:var(--paper);background:var(--dig)}
+#coach .row2 button.alt{background:#3f5a2a}
+.panel .seg.three{grid-template-columns:1fr 1fr 1fr}
 #achToast{position:fixed;z-index:9;top:calc(12px + env(safe-area-inset-top,0px));left:50%;transform:translate(-50%,-140%);transition:transform .35s cubic-bezier(.2,1.4,.4,1);
   display:flex;align-items:center;gap:10px;background:#1f2a14;color:var(--paper);border:2px solid var(--gold);border-radius:14px;padding:8px 14px 8px 10px;box-shadow:0 8px 24px rgba(0,0,0,.45);max-width:calc(100% - 24px);pointer-events:none}
 #achToast.show{transform:translate(-50%,0)}
@@ -235,6 +250,7 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
   <div id="signal" aria-hidden="true"><i id="sigBar"></i></div>
   <div id="tide" hidden></div>
   <div id="fx" aria-live="polite"></div>
+  <div id="coach" hidden><small><span id="coachStep">Step 1 of 6</span><button id="coachSkip">Skip tutorial</button></small><b id="coachTitle"></b><p id="coachText"></p><div class="dots" id="coachDots"></div><div class="row2" id="coachDone" hidden><button id="coachQuick">Quick play</button><button id="coachMenu" class="alt">Menu</button></div></div>
   <div id="banner" hidden aria-live="assertive"><b id="bannerT"></b><span id="bannerS"></span></div>
   <div class="topright">
     <button id="setBtn" aria-label="Settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19.4 13a7.5 7.5 0 0 0 0-2l2-1.6-2-3.4-2.4 1a7.4 7.4 0 0 0-1.7-1L15 3.5h-4L10.7 6a7.4 7.4 0 0 0-1.7 1l-2.4-1-2 3.4 2 1.6a7.5 7.5 0 0 0 0 2l-2 1.6 2 3.4 2.4-1a7.4 7.4 0 0 0 1.7 1l.3 2.5h4l.3-2.5a7.4 7.4 0 0 0 1.7-1l2.4 1 2-3.4zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z" transform="translate(-1 0)"/></svg></button>
@@ -271,13 +287,15 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
         <div class="row2" style="justify-content:space-between;align-items:center"><span class="note xpText">0 / 300 XP</span><button id="acctBtn" class="link">Account</button></div>
       </div>
       <p class="err" id="authErr"></p>
-      <button id="createBtn">Create game</button>
+      <button id="quickBtn">Quick play</button>
+      <button id="createBtn" class="alt">Create a game for friends</button>
       <div class="or">OR JOIN A MATE</div>
       <div class="row">
         <div><label for="codeIn">Game code</label><input id="codeIn" maxlength="4" autocomplete="off" placeholder="ABCD"></div>
       </div>
       <button id="joinBtn" class="alt">Join game</button>
       <p class="err" id="homeErr"></p>
+      <button id="tutBtn" class="ghost tutBtn">How to play <span class="newTag" id="tutNew">NEW</span></button>
       <div class="row2"><button class="ghost wardOpen">Wardrobe</button><button class="ghost achOpen">Achievements</button></div>
     </div>
   </div>
@@ -299,8 +317,8 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
       <label>Dig &amp; bonk buttons</label>
       <div class="seg" id="layoutSeg"></div>
       <label>Detector</label>
-      <div class="seg"><button data-det="classic">Classic</button><button data-det="pinpoint">Pinpoint</button></div>
-      <p class="note" style="margin:-6px 0 12px;font-size:12px">Pinpoint shows a circle that closes in on the find as you get nearer, and you can hold DIG instead of tapping.</p>
+      <div class="seg three"><button data-det="classic">Classic</button><button data-det="zone">Zone</button><button data-det="pinpoint">Pinpoint</button></div>
+      <p class="note" style="margin:-6px 0 12px;font-size:12px">Zone marks a rough area to search, and you find the exact spot by the beeps. Pinpoint closes in on the find for you. In both you can hold DIG, and you don't see what it is until you start digging.</p>
       <label>Scoreboard</label>
       <div class="seg"><button data-board="full">Full</button><button data-board="mini">Just me</button></div>
       <button class="ghost achOpen" style="margin-bottom:8px">Achievements</button>
@@ -890,7 +908,7 @@ const POW_INFO = {
   m: ['Magnet', 'Pulls in dropped finds and scrap'], l: ['Lucky charm', 'Next 3 finds upgraded a tier'], r: ['Treasure map', 'Marks the best finds'],
   b: ['Banana peel', 'Trap: whoever slips drops their best find'], k: ['Stink bomb', "Scrambles nearby detectors"], g: ['Sticky glove', 'Next bonk steals into your bag'],
   q: ['Big bonk', 'Shockwave: everyone around you drops a find']};
-let ACH = [], CAT = null, LOADOUT_CFG = {}, LEVELS = [], token = null, profile = null;
+let roomPublic = false, autoIn = null, ACH = [], CAT = null, LOADOUT_CFG = {}, LEVELS = [], token = null, profile = null;
 try { token = localStorage.getItem('fk-token'); } catch (_) {}
 const store = (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (_) {} };
 async function api(path, body){
@@ -1042,6 +1060,46 @@ $('newCodeBtn').addEventListener('click', async () => {
   try { const r = await api('/api/recovery-code', {}); setProfile(r.profile); renderAcct(); showCode(r.recovery); }
   catch (e) { $('acctErr').textContent = e.message; }
 });
+
+// ----- tutorial: a guided first round against a practice dummy -----
+const TUT = [
+  {title: 'Walk around', text: 'Drag anywhere on the screen to walk. (Arrow keys work too.)', done: () => tut.moved > 140},
+  {title: 'Listen for the beeps', text: 'Your detector beeps faster and the bar at the top fills as you get near something buried. Follow the beeps.', done: () => signal > .65},
+  {title: 'Dig it up', text: 'When the DIG button lights up, tap it until your find pops out of the ground.', done: () => tut.dug},
+  {title: 'Bank it', text: 'Finds only count once they are in the Museum. Walk inside to bank them.', done: () => tut.banked, arrow: () => ({x: MUSEUM.x, y: MUSEUM.y, label: m => `MUSEUM ${m}m`})},
+  {title: 'Bonk!', text: 'Other diggers can be robbed. Walk up to Practice Pete and tap BONK to knock his find loose.', done: () => tut.bonked, arrow: () => { const p = diggers.get(1000); return p ? {x: p.x, y: p.y, label: m => `PETE ${m}m`} : null; }},
+  {title: 'Grab it', text: 'Pick up the find he dropped by walking over it, before anyone else does.', done: () => tut.grabbed},
+];
+let tut = null;
+function startTutorial(){ tut = {step: 0, moved: 0, lx: me ? me.x : 0, ly: me ? me.y : 0, dug: false, banked: false, bonked: false, grabbed: false, wait: 0}; renderCoach(); $('coach').hidden = false; }
+function endTutorial(silent){ if (!tut) return; tut = null; $('coach').hidden = true; }
+function renderCoach(){
+  if (!tut) return;
+  const done = tut.step >= TUT.length, st = TUT[Math.min(tut.step, TUT.length - 1)];
+  $('coachStep').textContent = done ? 'All done' : `Step ${tut.step + 1} of ${TUT.length}`;
+  $('coachTitle').textContent = done ? "You're ready!" : st.title;
+  $('coachText').textContent = done ? 'Watch out for birds and random events, buy powerups in the Museum shop, and bank before closing time. Have fun!' : st.text;
+  $('coachDots').innerHTML = TUT.map((_, i) => `<i class="${i < tut.step ? 'on' : ''}"></i>`).join('');
+  $('coachDone').hidden = !done; $('coachSkip').hidden = done;
+}
+function tutTick(dt){
+  if (!tut || !me || tut.step >= TUT.length) return;
+  tut.moved += Math.hypot(me.x - tut.lx, me.y - tut.ly); tut.lx = me.x; tut.ly = me.y;
+  if (TUT[tut.step].done()){
+    tut.step++; [660, 880].forEach((f, i) => setTimeout(() => beep(f, .15, 'triangle', .08), i*90)); renderCoach();
+    if (tut.step >= TUT.length){ try { localStorage.setItem('fk-tut', '1'); } catch (_) {} $('tutNew').hidden = true; chime(); setTimeout(chime, 200); }
+  }
+}
+function tutEvent(e){
+  if (!tut) return;
+  if (e[0] === 'dug' && e[2] === myId && !e[3]) tut.dug = true;
+  if (e[0] === 'bank' && e[1] === myId) tut.banked = true;
+  if (e[0] === 'bonk' && e[1] === myId && e[3] >= 0) tut.bonked = true;
+  if (e[0] === 'pick' && e[2] === myId && tut.bonked) tut.grabbed = true;
+}
+$('coachSkip').addEventListener('click', () => { try { localStorage.setItem('fk-tut', '1'); } catch (_) {} $('tutNew').hidden = true; leaveGame(); });
+$('coachMenu').addEventListener('click', () => leaveGame());
+$('coachQuick').addEventListener('click', () => { const n = profile ? profile.name : ($('nameIn').value.trim() || 'Digger'); leaveGame(); setTimeout(() => connect(n, '', 'quick'), 300); });
 
 // ----- achievements -----
 // Achievements live on our server, so they work in any browser. When the game runs inside an Android app with
@@ -1198,6 +1256,9 @@ function getName(){
   return n;
 }
 $('createBtn').addEventListener('click', () => { const n = getName(); if (n){ unlockAudio(); connect(n, ''); } });
+$('quickBtn').addEventListener('click', () => { const n = getName(); if (n){ unlockAudio(); connect(n, '', 'quick'); } });
+$('tutBtn').addEventListener('click', () => { const n = getName(); if (n){ unlockAudio(); connect(n, '', 'tutorial'); } });
+try { $('tutNew').hidden = localStorage.getItem('fk-tut') === '1'; } catch (_) {}
 $('joinBtn').addEventListener('click', () => {
   const n = getName(); if (!n) return;
   const code = $('codeIn').value.trim().toUpperCase();
@@ -1226,25 +1287,34 @@ function renderLobby(players){
     if (p.id === hostId){ const em = document.createElement('em'); em.textContent = 'host'; li.append(em); }
     $('lobbyList').append(li);
   }
-  const isHost = myId === hostId;
+  const isHost = myId === hostId && !roomPublic;
+  document.querySelectorAll('.mapPick').forEach(el => el.hidden = roomPublic);
   document.querySelectorAll('.mapPick button').forEach(b => { b.classList.toggle('on', b.dataset.map === lobbyMap); b.disabled = !isHost; });
   $('startBtn').hidden = !isHost; $('waitNote').hidden = isHost;
   $('againBtn').hidden = !isHost; $('againNote').hidden = isHost;
+  const auto = autoIn != null ? `Starting in ${autoIn}s…` : 'Starting soon…';
+  $('waitNote').textContent = roomPublic ? `Quick play · ${auto} Anyone can drop in.` : 'Waiting for the host to start…';
+  $('againNote').textContent = roomPublic ? `Next round in ${autoIn != null ? autoIn + 's' : 'a moment'}… on a random map` : 'Waiting for the host to start the next round…';
+  $('lobbyCode').textContent = roomPublic ? 'QUICK' : roomCode;
+  $('shareBtn').hidden = roomPublic;
 }
 
 // ---------- network ----------
 function send(obj){ if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj)); }
-function connect(name, code){
+let joinMode = ''; // '', 'quick' or 'tutorial'
+function connect(name, code, mode = ''){
+  joinMode = mode;
   $('homeErr').textContent = 'Connecting…';
-  $('createBtn').disabled = $('joinBtn').disabled = true;
+  $('createBtn').disabled = $('joinBtn').disabled = $('quickBtn').disabled = $('tutBtn').disabled = true;
   let opened = false;
   const slow = setTimeout(() => { if (!opened) $('homeErr').textContent = 'Waking the server up. This can take up to a minute the first time…'; }, 4000);
-  ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host);
-  ws.onopen = () => { opened = true; clearTimeout(slow); send({t: 'join', name, room: code, look: myLook(), token: profile ? token : undefined}); };
+  const sock = ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host);
+  ws.onopen = () => { opened = true; clearTimeout(slow); send({t: 'join', name, room: code, quick: mode === 'quick' ? 1 : undefined, tutorial: mode === 'tutorial' ? 1 : undefined, look: myLook(), token: profile ? token : undefined}); };
   ws.onmessage = e => { let m; try { m = JSON.parse(e.data); } catch (_) { return; } handle(m); };
   ws.onclose = () => {
     clearTimeout(slow);
-    $('createBtn').disabled = $('joinBtn').disabled = false;
+    if (ws !== sock) return; // an old connection closing after we've already started a new one
+    $('createBtn').disabled = $('joinBtn').disabled = $('quickBtn').disabled = $('tutBtn').disabled = false; endTutorial(true);
     if (!opened) $('homeErr').textContent = 'Couldn’t reach the server. Try again in a moment.';
     else if (!$('homeErr').dataset.keep) $('homeErr').textContent = 'Connection lost. Rejoin with the same code.';
     delete $('homeErr').dataset.keep;
@@ -1258,9 +1328,10 @@ function handle(m){
   if (m.t === 'reward'){ showReward(m); return; }
   if (m.t === 'hello'){ myId = m.you; $('homeErr').textContent = ''; return; }
   if (m.t === 'lobby'){
-    roomCode = m.code; hostId = m.host; roomState = m.state; lobbyMap = m.map || 'field';
-    history.replaceState(null, '', `?room=${roomCode}`);
+    roomCode = m.code; hostId = m.host; roomState = m.state; lobbyMap = m.map || 'field'; roomPublic = !!m.public; autoIn = m.auto;
+    if (joinMode !== 'tutorial') history.replaceState(null, '', roomPublic ? location.pathname : `?room=${roomCode}`);
     renderLobby(m.players);
+    if (joinMode === 'tutorial') return;
     if (m.state === 'lobby' || (m.state === 'end' && !inGame && $('end').hidden)) show('lobby');
     return;
   }
@@ -1269,6 +1340,7 @@ function handle(m){
   if (m.t === 'end'){ endRound(m); return; }
 }
 function startRound(m){
+  if (joinMode === 'tutorial') setTimeout(startTutorial, 300);
   TYPES = m.types; POWERS = m.powers || {};
   MAP = m.map || 'field'; if (m.museum) MUSEUM = m.museum; TIDE = m.tide || null; WRECK = m.wreck || null; TOP = m.top || 70;
   CIRCLE = m.circle || null; OBST = m.obstacles || []; ICE = m.ice || null; SLIPPERY = !!m.slippery; keeper = null; skiers = [];
@@ -1332,7 +1404,7 @@ function applySnap(m){
   const liveC = new Set();
   for (const [id, x, y] of (m.c || [])){ liveC.add(id); if (!crates.has(id)) crates.set(id, {id, x, y, age: 1}); }
   for (const id of crates.keys()) if (!liveC.has(id)) crates.delete(id);
-  for (const e of m.e) applyEvent(e);
+  for (const e of m.e){ applyEvent(e); tutEvent(e); }
 }
 const nameOf = id => (diggers.get(id) || {}).name || 'Someone';
 function floatAt(x, y, text, col, opts = {}){ floats.push({x, y, text, col, t: 0, ...opts}); }
@@ -1681,7 +1753,7 @@ let digHold = null;
 const stopHold = () => { if (digHold){ clearInterval(digHold); digHold = null; } };
 digBtn.addEventListener('pointerdown', e => {
   e.preventDefault(); playerDig();
-  if (detMode === 'pinpoint' && !digHold){ try { digBtn.setPointerCapture(e.pointerId); } catch (_) {}
+  if (detMode !== 'classic' && !digHold){ try { digBtn.setPointerCapture(e.pointerId); } catch (_) {}
     digHold = setInterval(() => { if (!inGame || !target || carrying()) return; playerDig(); }, 110); }
 });
 for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) digBtn.addEventListener(ev, stopHold);
@@ -1843,9 +1915,9 @@ function update(dt){
     pulsePhase += dt/(1.1 - signal*.98);
     if (pulsePhase >= 1){
       pulsePhase -= 1;
-      const strong = signal > .5, T = TYPES[nearB.ti];
+      const strong = signal > .5 && detMode === 'classic', T = TYPES[nearB.ti];
       rings.push({x: coil.x, y: coil.y, t: 0, col: strong ? T.ring : '#e8f4cf'});
-      beep(strong ? T.base + signal*300 : 380 + signal*300, .07, strong ? T.tone : 'sine', .05 + signal*.05);
+      beep(strong ? T.base + signal*300 : 380 + signal*420, .07, strong ? T.tone : 'sine', .05 + signal*.05);
     }
   } else pulsePhase = .8;
   pin = signal > .3 && nearB && !me.fx.x ? nearB : null;
@@ -1858,6 +1930,7 @@ function update(dt){
   bonkBtn.classList.toggle('ready', !noBonk && canBonkSomething());
   digBtn.classList.toggle('off', !!me.stun); bonkBtn.classList.toggle('off', noBonk);
 
+  tutTick(dt);
   rings = rings.filter(r => (r.t += dt) < .6);
   floats = floats.filter(f => (f.t += dt) < 1.6);
   pops = pops.filter(p => (p.t += dt) < .6);
@@ -1887,7 +1960,7 @@ function update(dt){
   }
   const bv = bagValue(me); if (+$('bagN').textContent !== bv){ $('bagN').textContent = bv; if (bv) bumpEl('bagN'); }
   $('sigBar').style.width = (signal*100).toFixed(0) + '%';
-  $('sigBar').style.background = signal > .5 && nearB ? TYPES[nearB.ti].ring : '#cfe7a8';
+  $('sigBar').style.background = signal > .5 && nearB && detMode === 'classic' ? TYPES[nearB.ti].ring : '#cfe7a8';
   const tl = Math.ceil(timeLeft);
   $('timeN').textContent = `${Math.floor(tl/60)}:${String(tl%60).padStart(2, '0')}`;
   $('timer').classList.toggle('low', timeLeft <= DUSK);
@@ -2478,6 +2551,14 @@ function draw(){
     const k = b.prog / TYPES[b.ti].taps;
     ctx.fillStyle = snowy ? '#8796a3' : '#5a4128'; ctx.beginPath(); ctx.ellipse(b.x, b.y, 6 + k*10, 5 + k*8, 0, 0, 7); ctx.fill();
   }
+  if (detMode === 'zone' && inGame && me && pin){
+    // a fixed search area: the find is somewhere inside it but not at the centre, and it doesn't move as you walk
+    const R = 85, ja = pin.id*2.399, zx = pin.x + Math.cos(ja)*R*.55, zy = pin.y + Math.sin(ja)*R*.55;
+    ctx.globalAlpha = Math.min(1, (signal - .3)*2.5);
+    ctx.fillStyle = 'rgba(244,236,212,.14)'; ctx.beginPath(); ctx.arc(zx, zy, R, 0, 7); ctx.fill();
+    ctx.strokeStyle = 'rgba(244,236,212,.8)'; ctx.lineWidth = 2.5; ctx.setLineDash([10, 8]); ctx.lineDashOffset = -t*12;
+    ctx.beginPath(); ctx.arc(zx, zy, R, 0, 7); ctx.stroke(); ctx.setLineDash([]); ctx.lineDashOffset = 0; ctx.globalAlpha = 1;
+  }
   if (detMode === 'pinpoint' && inGame && me){
     // a circle that closes in on the find: big and roughly placed when the beeps start, exact once you can dig
     const P = target || pin;
@@ -2485,8 +2566,9 @@ function draw(){
       const T = TYPES[P.ti], D = Math.hypot(P.x - me.x, P.y - me.y), exact = !!target, k = exact ? 0 : Math.min(1, Math.max(0, (D - 40)/170));
       const ja = P.id*2.399, cx0 = P.x + Math.cos(ja)*k*45, cy0 = P.y + Math.sin(ja)*k*45, r = exact ? 15 + Math.sin(t*8)*2 : 18 + k*75;
       ctx.globalAlpha = exact ? 1 : .55 + signal*.45;
-      ctx.fillStyle = T.ring + (exact ? '55' : '30'); ctx.beginPath(); ctx.arc(cx0, cy0, r, 0, 7); ctx.fill();
-      ctx.strokeStyle = exact ? '#ffffff' : T.ring; ctx.lineWidth = 3; if (!exact) ctx.setLineDash([8, 6]);
+      const pc = P.prog > 0 ? T.ring : '#f4ecd4';
+      ctx.fillStyle = pc + (exact ? '55' : '30'); ctx.beginPath(); ctx.arc(cx0, cy0, r, 0, 7); ctx.fill();
+      ctx.strokeStyle = exact ? '#ffffff' : pc; ctx.lineWidth = 3; if (!exact) ctx.setLineDash([8, 6]);
       ctx.beginPath(); ctx.arc(cx0, cy0, r, 0, 7); ctx.stroke(); ctx.setLineDash([]);
       if (exact){ const by = P.y - 30 - Math.abs(Math.sin(t*5))*6; ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.moveTo(P.x - 7, by); ctx.lineTo(P.x + 7, by); ctx.lineTo(P.x, by + 9); ctx.fill();
         ctx.font = '800 11px Nunito, sans-serif'; ctx.textAlign = 'center'; ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(20,26,12,.85)'; ctx.strokeText('DIG HERE', P.x, by - 8); ctx.fillText('DIG HERE', P.x, by - 8); }
@@ -2498,7 +2580,7 @@ function draw(){
     ctx.strokeStyle = 'rgba(255,255,255,.75)'; ctx.setLineDash([4, 4]); ctx.lineWidth = 2;
     ctx.beginPath(); ctx.arc(target.x, target.y, 14, 0, 7); ctx.stroke(); ctx.setLineDash([]);
     ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillRect(target.x-22, target.y-30, 44, 7);
-    ctx.fillStyle = '#f0bd34'; ctx.fillRect(target.x-21, target.y-29, 42*k, 5);
+    ctx.fillStyle = detMode !== 'classic' && target.prog > 0 ? TYPES[target.ti].ring : '#f0bd34'; ctx.fillRect(target.x-21, target.y-29, 42*k, 5);
   }
   drawMuseum();
   { const fxp = MUSEUM.x + MUSEUM.w/2 - 14, fyp = MUSEUM.y - MUSEUM.h/2 - 20; // flag on the roof
@@ -2733,6 +2815,7 @@ function draw(){
   const targets = [];
   for (const c of crates.values()) targets.push({x: c.x, y: c.y, col: '#ffd447', label: m => `CRATE ${m}m`});
   if (curEv && curEv.kind === 'club') targets.push({x: curEv.data.x, y: curEv.data.y, col: '#ffb347', label: m => `CLUB ${m}m`});
+  if (tut && tut.step < TUT.length && TUT[tut.step].arrow){ const a = TUT[tut.step].arrow(); if (a) targets.push({...a, col: '#f0bd34'}); }
   if (curEv && curEv.kind === 'icecream' && !(me && me.fx.w)) targets.push({x: curEv.data.x, y: curEv.data.y, col: '#ffb3d9', label: m => `ICE CREAM ${m}m`});
   if (me && me.fx.r) for (const b of mapPicks()) targets.push({x: b.x, y: b.y, col: '#e8c47a', label: m => `MAP ${m}m`});
   for (const h of heavies.values()) if (h.carriers.length < 2 && !h.carriers.includes(myId))
