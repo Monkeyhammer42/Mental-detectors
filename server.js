@@ -18,6 +18,7 @@ const WORLD = 1800;
 // ---------- maps ----------
 const MAPS = {
   field: { id: 'field', name: "Farmer's Field", museum: { x: 900, y: 880, w: 220, h: 150 }, top: 70 },
+  haunted: { id: 'haunted', name: 'Haunted Field', museum: { x: 900, y: 880, w: 220, h: 150 }, top: 70, season: 'halloween', night: true },
   beach: { id: 'beach', name: 'The Beach', museum: { x: 900, y: 230, w: 220, h: 150 }, top: 470,
     tide: { mid: 1340, amp: 320, period: 60 },  // sea edge moves between y 1020 (high) and 1660 (low)
     wreck: { x: 900, y: 1560, r: 230 } },
@@ -46,7 +47,19 @@ const MAPS = {
     const rock = M.obstacles.length % 4 === 3;
     M.obstacles.push({ x: Math.round(x), y: Math.round(y), r: rock ? 30 : 22 + Math.round(rnd() * 6), kind: rock ? 'rock' : 'pine' });
   }
+  const H = MAPS.haunted; H.obstacles = []; // rows of gravestones and a few dead trees
+  for (let tries = 0; H.obstacles.length < 46 && tries < 4000; tries++) {
+    const x = 110 + rnd() * (WORLD - 220), y = 110 + rnd() * (WORLD - 220);
+    if (Math.hypot(x - H.museum.x, y - H.museum.y) < 260) continue;
+    if (H.obstacles.some(o => Math.hypot(o.x - x, o.y - y) < o.r + 80)) continue;
+    const tree = H.obstacles.length % 6 === 5;
+    H.obstacles.push({ x: Math.round(x), y: Math.round(y), r: tree ? 26 : 15, kind: tree ? 'deadtree' : 'grave' });
+  }
 })();
+// seasonal content: Halloween runs 20 Oct - 2 Nov (HALLOWEEN=1 or 0 forces it on or off for testing)
+const seasonOn = name => name !== 'halloween' ? false : process.env.HALLOWEEN ? process.env.HALLOWEEN === '1' : accounts.isHalloween();
+const mapOpen = id => MAPS[id] && (!MAPS[id].season || seasonOn(MAPS[id].season));
+const openMaps = () => Object.keys(MAPS).filter(mapOpen);
 const BEACH_NAMES = {
   0: ['Sea glass', 'Ring pull', 'Fishing hook', 'Lolly stick', 'Bottle cap', 'Lost earring', 'Toy spade'],
   1: ['Old penny', 'Fishing weight', 'Brass button', 'Buckle', 'Musket ball', 'Pier token'],
@@ -68,12 +81,20 @@ const MOUNTAIN_NAMES = {
   3: ['Gold nugget', "Explorer's medal", 'Golden ski', 'Gold pocket watch'],
   5: ['Frozen chest', 'Old ski-lift chair', 'Mountain bell', 'Lost sledge', 'Ice-cased statue', 'Summit cross'],
 };
-const MAP_NAMES = { beach: BEACH_NAMES, park: PARK_NAMES, mountain: MOUNTAIN_NAMES };
+const HAUNTED_NAMES = {
+  0: ['Coffin nail', 'Rusty key', 'Old bone', 'Broken candle', 'Cracked marble', 'Bent horseshoe'],
+  1: ["Witch's button", 'Candle snuffer', 'Toad charm', 'Iron cross', 'Old bell'],
+  2: ['Raven brooch', 'Silver locket', 'Haunted pocket watch', 'Silver dagger'],
+  3: ['Cursed crown', 'Ghost gold', "Vampire's ring", 'Gold skull'],
+  5: ['Coffin', 'Stone gargoyle', 'Church bell'],
+};
+const MAP_NAMES = { beach: BEACH_NAMES, park: PARK_NAMES, mountain: MOUNTAIN_NAMES, haunted: HAUNTED_NAMES };
 const WRECK_NAMES = { 0: ['Rusty chain link', 'Barnacled bolt'], 1: ["Ship's nail", 'Porthole latch', 'Cannonball'], 2: ['Piece of eight', "Ship's compass", 'Spyglass'], 3: ['Gold doubloon', "Captain's ring", 'Jewelled cutlass'] };
 const WRECK_W = [5, 30, 40, 25], WRECK_ITEMS = 7;
 // ---------- random events: two per round, one in each half ----------
 const EVENTS = {
-  storm:      { dur: 22, maps: ['field', 'beach', 'park'] }, // lightning strikes near players
+  storm:      { dur: 22, maps: ['field', 'beach', 'park', 'haunted'] }, // lightning strikes near players
+  ghosts:     { dur: 18, maps: ['haunted'] },  // ghosts drift through walls after anyone carrying finds
   tractor:    { dur: 13, maps: ['field'] },    // ploughs a row, runs people over
   club:       { dur: 26 },                     // a coach party of detectorists digs out one area
   goldrush:   { dur: 20 },                     // extra silver and gold, new finds a tier better
@@ -139,13 +160,16 @@ const MAGNET_R = 170, STINK_R = 150, SHOCK_R = 85, TRAP_LIFE = 60;
 const BOX_CHANCE = 1 / 12, CRATE_FIRST = 20, CRATE_EVERY = 30;
 const TIRED_AFTER = 2, TIRED_SECS = 10; // bonking empty-handed players this many times in 15s tires your arm
 const pick = a => a[Math.random() * a.length | 0];
+// quick chat: the client holds the words; these are the indexes bots use
+const SAY_COUNT = 15, SAY = { gotcha: 6, oi: 8, laugh: 9, angry: 10, shock: 12 };
 // ---------- cosmetics (bought in each player's wardrobe; the server only checks the ids are real) ----------
 const LOOK_IDS = Object.fromEntries(Object.entries(CATALOG).map(([k, v]) => [k, v.items.map(i => i[0])]));
-const JACKET_HEX = { red: '#c0392b', yellow: '#e2b822', pink: '#e84393', orange: '#e67e22', purple: '#8e44ad', sky: '#3fa7d6', black: '#2b2b2b', white: '#ecebe4', camo: '#5d6b3a', hivis: '#cde62a', stripes: '#1f3b73', tartan: '#a3262a',
+const JACKET_HEX = { red: '#c0392b', yellow: '#e2b822', pink: '#e84393', orange: '#e67e22', purple: '#8e44ad', sky: '#3fa7d6', black: '#2b2b2b', white: '#ecebe4', camo: '#5d6b3a', hivis: '#cde62a', stripes: '#1f3b73', tartan: '#a3262a', vampcape: '#1d1d1d', mummy: '#e8dfc4', reaperrobe: '#1a1a22',
   tux: '#1d1d1d', chefwhites: '#f4f1e8', santasuit: '#c0392b', skeleton: '#1d1d1d', banana: '#f2d13c', ghost: '#f1f1f1', wizrobe: '#4b2a8a', hero: '#2d5f9e', knight: '#9aa4ad', dino: '#4caf50', astro: '#eef1f4' };
 const cleanLook = (raw, acct) => accounts.cleanLook(acct || null, raw); // guests only get the free items
 function botLook() {
-  const l = {}; for (const k in LOOK_IDS) l[k] = k === 'jacket' ? 'auto' : (k === 'pet' || k === 'trail') && Math.random() < 0.6 ? 'none' : pick(LOOK_IDS[k]); return l;
+  const ids = k => CATALOG[k].items.filter(i => !i[4] || seasonOn(i[4])).map(i => i[0]); // bots dress up for Halloween too, but only while it's on
+  const l = {}; for (const k in LOOK_IDS) l[k] = k === 'jacket' ? 'auto' : (k === 'pet' || k === 'trail') && Math.random() < 0.6 ? 'none' : pick(ids(k)); return l;
 }
 const lookCol = (look, base) => look.jacket !== 'auto' && JACKET_HEX[look.jacket] ? JACKET_HEX[look.jacket] : base;
 const TOTALW = TYPES.reduce((a, t) => a + t.w, 0);
@@ -253,7 +277,7 @@ class Room {
     return (this.map.obstacles || []).some(ob => Math.hypot(ob.x - x, ob.y - y) < ob.r + 20 + pad);
   }
   onIce(o) { const I = this.map.ice; return !!I && ((o.x - I.x) / I.rx) ** 2 + ((o.y - I.y) / I.ry) ** 2 < 1; }
-  setMap(id) { if (MAPS[id] && this.state !== 'play') { this.mapId = id; this.lobbyMsg(); } }
+  setMap(id) { if (mapOpen(id) && this.state !== 'play') { this.mapId = id; this.lobbyMsg(); } }
   start() {
     this.map = MAPS[this.mapId]; this.M = this.map.museum;
     this.resetWorld();
@@ -464,6 +488,14 @@ class Room {
         this.magpies.push(m);
       }
     }
+    if (kind === 'ghosts') {
+      const open = this.diggers.filter(d => !this.inMuseum(d.x, d.y, 30)).sort((a, b) => bagValue(b) - bagValue(a));
+      for (let i = 0; i < 3; i++) {
+        const tg = open[i % Math.max(1, open.length)] || this.diggers[0], a = Math.random() * Math.PI * 2;
+        this.magpies.push({ id: this.uid++, x: WORLD / 2 + Math.cos(a) * 1000, y: WORLD / 2 + Math.sin(a) * 1000, alt: 8, target: tg, item: null, any: true, kind: 'ghost',
+          state: 'hunt', t: 0, ts: 0, dir: a + Math.PI, stun: 0, fleeA: 0, rolled: new Set(), steals: 0 });
+      }
+    }
     if (kind === 'keeper') { const C = this.map.circle; this.keeper = { x: C.x, y: C.y + C.r - 60, dir: -Math.PI / 2, cool: new Map() }; }
     if (kind === 'icecream') { const p = this.dryPoint(250); ev.data = { x: Math.round(p.x), y: Math.round(p.y) }; ev.served = new Set(); }
     if (kind === 'avalanche') { ev.data = { x: Math.round(300 + Math.random() * (WORLD - 600)), w: AVALANCHE_W, speed: AVALANCHE_SPEED }; ev.hit = new Set(); }
@@ -482,7 +514,7 @@ class Room {
   }
   endEvent() {
     const ev = this.event; this.event = null; this.bolts = []; this.keeper = null; this.skiers = [];
-    if (ev.kind === 'dog') for (const m of this.magpies) if (m.kind === 'dog' && m.state === 'hunt') { m.state = 'leave'; m.fleeA = Math.random() * 7; }
+    if (ev.kind === 'dog' || ev.kind === 'ghosts') for (const m of this.magpies) if ((m.kind === 'dog' || m.kind === 'ghost') && m.state === 'hunt') { m.state = 'leave'; m.fleeA = Math.random() * 7; }
     if (ev.kind === 'avalanche') { const D = ev.data; for (let i = 0; i < 6; i++) this.spawnItem(false, null, [this.map.top + 100, WORLD - 300]); }
     if (ev.kind === 'club') for (const d of this.diggers.filter(x => x.npc)) {
       if (d.carry) this.unlift(d);
@@ -830,6 +862,8 @@ class Room {
       return true;
     }
     this.ev.push(['bonk', a.id, v.id, dropped ? dropped.ti : -1, dropped ? dropped.name : '']);
+    if (dropped && v.isBot && !v.npc && !v.dummy && Math.random() < .3) this.ev.push(['say', v.id, pick([SAY.angry, SAY.shock, SAY.oi])]);
+    else if (dropped && a.isBot && !a.npc && Math.random() < .2) this.ev.push(['say', a.id, pick([SAY.gotcha, SAY.laugh])]);
     if (dropped) this.dropLoose(dropped, v.x, v.y, ang, v.id);
     else if (++a.grief >= TIRED_AFTER) { a.grief = 0; a.tired = TIRED_SECS; this.ev.push(['tired', a.id, TIRED_SECS]); }
     else a.griefT = 15;
@@ -868,7 +902,7 @@ class Room {
     for (const m of this.magpies) {
       m.t += dt;
       if (m.stun > 0) { m.stun -= dt; m.alt = Math.max(0, m.alt - dt * 80); continue; }
-      const dog = m.kind === 'dog';
+      const ghost = m.kind === 'ghost', dog = m.kind === 'dog' || ghost; // ghosts hunt like dogs, just slower and floating
       let gx = m.x, gy = m.y, sp = 0;
       if (m.state === 'hunt') {
         const tg = m.target;
@@ -880,25 +914,25 @@ class Room {
         }
         if (lost || m.t > (dog ? 16 : 14)) { m.state = 'leave'; m.fleeA = Math.atan2(m.y - tg.y, m.x - tg.x); }
         else {
-          gx = tg.x; gy = tg.y; sp = dog ? 205 : 175;
-          const dd = Math.hypot(gx - m.x, gy - m.y); m.alt = dog ? 0 : Math.min(60, dd * 0.3);
+          gx = tg.x; gy = tg.y; sp = ghost ? 135 : dog ? 205 : 175;
+          const dd = Math.hypot(gx - m.x, gy - m.y); m.alt = ghost ? 8 : dog ? 0 : Math.min(60, dd * 0.3);
           if (dd < 16) {
             let bi = -1; tg.bag.forEach((b, i) => { if ((m.any || TYPES[b.ti].v >= 40) && (bi < 0 || TYPES[b.ti].v > TYPES[tg.bag[bi].ti].v)) bi = i; });
             if (bi < 0) {
-              tg.stun = Math.max(tg.stun, 0.5); this.ev.push(['peck', m.id, tg.id, dog ? 1 : 0]);
+              tg.stun = Math.max(tg.stun, 0.5); this.ev.push(['peck', m.id, tg.id, ghost ? 2 : dog ? 1 : 0]);
               if (dog) { const nt = this.diggers.filter(d => d !== tg && d.bag.length && !this.inMuseum(d.x, d.y, 20))[0]; if (nt) { m.target = nt; continue; } }
               m.state = 'leave'; m.fleeA = Math.random() * 7; continue;
             }
             m.item = tg.bag.splice(bi, 1)[0]; m.state = 'flee'; m.ts = 0;
             m.fleeA = Math.atan2(m.y - tg.y, m.x - tg.x) + (Math.random() - 0.5);
-            this.ev.push(['steal', m.id, tg.id, m.item.ti, m.item.name, dog ? 1 : 0]);
+            this.ev.push(['steal', m.id, tg.id, m.item.ti, m.item.name, ghost ? 2 : dog ? 1 : 0]);
           }
         }
       }
       if (m.state === 'flee' || m.state === 'leave') {
         m.ts += dt;
         gx = m.x + Math.cos(m.fleeA) * 100; gy = m.y + Math.sin(m.fleeA) * 100;
-        sp = dog ? 215 : m.state === 'flee' ? (m.ts < 1.3 ? 100 : 185) : 200;
+        sp = ghost ? 150 : dog ? 215 : m.state === 'flee' ? (m.ts < 1.3 ? 100 : 185) : 200;
         if (!dog) m.alt = Math.min(60, m.alt + dt * (m.state === 'flee' ? 22 : 60));
       }
       const dd = Math.hypot(gx - m.x, gy - m.y) || 1;
@@ -1056,6 +1090,9 @@ class Room {
     } else if (msg.t === 'dig') {
       const now = Date.now(); if (now - d.lastDig < 70) return; d.lastDig = now;
       const tg = this.findTarget(d, typeof msg.id === 'number' ? msg.id : null); if (tg) { d.dir = Math.atan2(tg.y - d.y, tg.x - d.x); this.digAt(d, tg); }
+    } else if (msg.t === 'say') { // quick chat: an index into the client's list of phrases and emotes
+      const k = msg.k | 0, now = Date.now();
+      if (k >= 0 && k < SAY_COUNT && now - (d.sayAt || 0) > 1200) { d.sayAt = now; this.ev.push(['say', d.id, k]); }
     } else if (msg.t === 'bonk') {
       this.bonk(d);
     } else if (msg.t === 'lift') {
@@ -1076,7 +1113,7 @@ class Room {
       const before = this.autoT == null ? null : Math.ceil(this.autoT);
       if (this.autoT == null) this.autoT = this.state === 'end' ? 15 : 10;
       this.autoT -= dt;
-      if (this.autoT <= 0){ this.autoT = null; this.mapId = pick(Object.keys(MAPS)); this.start(); return; }
+      if (this.autoT <= 0){ this.autoT = null; this.mapId = pick(openMaps()); this.start(); return; }
       if (Math.ceil(this.autoT) !== before) this.lobbyMsg();
     }
     if (this.state !== 'play') return;
@@ -1127,19 +1164,19 @@ class Room {
     if (id == null || id >= 1000) return; // bots and the detecting club don't have accounts
     const [ws, c] = this.clientOf(id); if (!c || !c.acct) return;
     const got = accounts.track(c.acct, key, n, mode);
-    if (got.length) this.send(ws, { t: 'profile', profile: accounts.profile(c.acct), ach: got.map(a => a.id) });
+    if (got.length || got.daily.length) this.send(ws, { t: 'profile', profile: accounts.profile(c.acct), ach: got.map(a => a.id), daily: got.daily.map(x => x.id) });
   }
   // most stats come straight off the events the clients already get
   statsFromEvents(evs) {
     const ids = s => String(s || '').split(',').filter(Boolean).map(Number);
     for (const e of evs) switch (e[0]) {
-      case 'bank': this.stat(e[1], 'banked', e[2]); if (this.timeLeft <= 5) this.stat(e[1], 'clutch'); break;
+      case 'bank': this.stat(e[1], 'banked', e[2]); if (this.timeLeft <= 5) this.stat(e[1], 'clutch'); if (this.mapId === 'haunted') this.stat(e[1], 'hauntedBank', e[2]); break;
       case 'hbank': for (const id of ids(e[2])) this.stat(id, 'heavies'); break;
       case 'bonk': if (e[3] >= 0) { this.stat(e[1], 'robs'); if (e[5]) this.stat(e[1], 'gloves'); } break;
       case 'shock': this.stat(e[1], 'shockMax', ids(e[4]).length, 'max'); break;
       case 'slip': if (e[5] != null && e[5] !== e[2]) this.stat(e[5], 'slips'); break;
       case 'hbreak': this.stat(e[2], 'smashes'); break;
-      case 'mhit': { const m = this.magpies.find(x => x.id === e[1]); this.stat(e[2], m && m.kind === 'dog' ? 'dogs' : 'birds'); break; }
+      case 'mhit': { const m = this.magpies.find(x => x.id === e[1]); this.stat(e[2], m && m.kind === 'dog' ? 'dogs' : m && m.kind === 'ghost' ? 'ghosts' : 'birds'); break; }
       case 'strike': for (const id of ids(e[4])) this.stat(id, 'struck'); break;
       case 'runover': this.stat(e[1], 'runover'); break;
       case 'keeper': this.stat(e[1], 'keeper'); break;
@@ -1159,7 +1196,7 @@ class Room {
         Object.keys(d.fx).map(k => k + Math.ceil(d.fx[k])).join('') + (d.padlock ? 'p' : '') + (d.lucky > 0 ? 'l' + d.lucky : '') + (d.tired > 0 ? 'z' + Math.ceil(d.tired) : '')]),
       hv: this.heavies.map(h => [h.id, Math.round(h.x), Math.round(h.y), h.carriers.map(c => c.id).join(','), h.hp, Math.ceil(h.wait)]),
       c: this.crates.map(c => [c.id, Math.round(c.x), Math.round(c.y)]),
-      m: this.magpies.map(m => [m.id, Math.round(m.x), Math.round(m.y), Math.round(m.alt), Math.round(m.dir * 100) / 100, m.item ? m.item.ti : -1, m.stun > 0 ? 1 : 0, m.kind === 'dog' ? 1 : 0]),
+      m: this.magpies.map(m => [m.id, Math.round(m.x), Math.round(m.y), Math.round(m.alt), Math.round(m.dir * 100) / 100, m.item ? m.item.ti : -1, m.stun > 0 ? 1 : 0, m.kind === 'dog' ? 1 : m.kind === 'ghost' ? 2 : 0]),
       kp: this.keeper ? [Math.round(this.keeper.x), Math.round(this.keeper.y), Math.round(this.keeper.dir * 100) / 100] : undefined,
       sk: this.skiers && this.skiers.length ? this.skiers.map(k => [Math.round(k.x), Math.round(k.y)]) : undefined,
       e: this.ev,
@@ -1197,8 +1234,9 @@ async function api(req, res) {
   const send = (code, obj) => { res.writeHead(code, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(obj)); };
   const path = req.url.split('?')[0];
   try {
-    if (path === '/api/catalog') return send(200, { catalog: CATALOG, achievements: ACHIEVEMENTS, loadout: LOADOUT_CFG, levels: Array.from({ length: MAX_LEVEL }, (_, i) => xpForLevel(i + 1)), persistent: accounts.persistent, dbError, googleClientId: GOOGLE_CLIENT_ID });
+    if (path === '/api/catalog') return send(200, { catalog: CATALOG, achievements: ACHIEVEMENTS, season: { halloween: seasonOn('halloween') }, loadout: LOADOUT_CFG, levels: Array.from({ length: MAX_LEVEL }, (_, i) => xpForLevel(i + 1)), persistent: accounts.persistent, dbError, googleClientId: GOOGLE_CLIENT_ID });
     if (req.method !== 'POST') return send(405, { error: 'Use POST.' });
+    if (path === '/api/leaderboard') { const b = await readJson(req), kind = ['week', 'all', 'wins'].includes(b.kind) ? b.kind : 'week', ses = await accounts.session(bearer(req)).catch(() => null); return send(200, await accounts.leaderboard(kind, ses && ses.acct)); }
     const body = await readJson(req);
     const ip = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
     const slow = () => limited(ip) && send(429, { error: 'Too many attempts. Wait a few minutes and try again.' });
@@ -1343,7 +1381,7 @@ function onConnection(ws) {
         if (room.clients.size >= MAX_PLAYERS) { room = null; joining = false; ws.send(JSON.stringify({ t: 'error', msg: 'That game is full (8 players).' })); return; }
       } else if (msg.quick) { // the busiest open Quick Play game, or a fresh one
         room = [...rooms.values()].filter(r => r.public && r.clients.size < MAX_PLAYERS).sort((a, b) => b.clients.size - a.clients.size)[0];
-        if (!room){ code = newCode(); room = new Room(code, { public: true }); room.mapId = pick(Object.keys(MAPS)); rooms.set(code, room); }
+        if (!room){ code = newCode(); room = new Room(code, { public: true }); room.mapId = pick(openMaps()); rooms.set(code, room); }
       } else if (msg.tutorial) {
         code = newCode(); room = new Room(code, { tutorial: true }); rooms.set(code, room);
       } else {
