@@ -1236,6 +1236,7 @@ async function api(req, res) {
   try {
     if (path === '/api/catalog') return send(200, { catalog: CATALOG, achievements: ACHIEVEMENTS, season: { halloween: seasonOn('halloween') }, loadout: LOADOUT_CFG, levels: Array.from({ length: MAX_LEVEL }, (_, i) => xpForLevel(i + 1)), persistent: accounts.persistent, dbError, googleClientId: GOOGLE_CLIENT_ID });
     if (req.method !== 'POST') return send(405, { error: 'Use POST.' });
+    if (path === '/api/clientlog') { const b = await readJson(req); console.error('CLIENT ERROR', JSON.stringify({ where: String(b.where).slice(0, 30), v: String(b.v).slice(0, 20), map: String(b.map).slice(0, 12), inGame: !!b.inGame, state: String(b.state).slice(0, 10), ua: String(b.ua).slice(0, 160) }), '\n' + String(b.msg).slice(0, 600)); return send(200, { ok: true }); }
     if (path === '/api/leaderboard') { const b = await readJson(req), kind = ['week', 'all', 'wins'].includes(b.kind) ? b.kind : 'week', ses = await accounts.session(bearer(req)).catch(() => null); return send(200, await accounts.leaderboard(kind, ses && ses.acct)); }
     const body = await readJson(req);
     const ip = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();

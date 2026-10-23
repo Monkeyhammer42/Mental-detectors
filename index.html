@@ -1528,8 +1528,8 @@ function handle(m){
     if (m.state === 'lobby' || (m.state === 'end' && !inGame && $('end').hidden)) show('lobby');
     return;
   }
-  if (m.t === 'init'){ startRound(m); return; }
-  if (m.t === 's'){ applySnap(m); return; }
+  if (m.t === 'init'){ try { startRound(m); } catch (e) { reportError(e, 'startRound'); inGame = true; show(null); document.body.classList.add('playing'); } return; }
+  if (m.t === 's'){ try { applySnap(m); } catch (e) { reportError(e, 'snapshot'); } return; }
   if (m.t === 'end'){ endRound(m); return; }
 }
 function startRound(m){
@@ -3252,12 +3252,27 @@ function drawStage(canvas, st, dt, look, col){
 
 let last = performance.now();
 function frame(now){
+  requestAnimationFrame(frame); // keep the loop alive even if something below goes wrong
   const dt = Math.min(.05, (now - last)/1000); last = now;
-  update(dt); draw();
-  if (!$('wardrobe').hidden && wStage){ wStage.spin = !wStage.showFx; drawStage($('wPrev'), wStage, dt, trying, trying.jacket !== 'auto' ? JACKET_HEX[trying.jacket] : '#2d5f9e'); }
-  if (!$('end').hidden && endStage) drawStage($('flour'), endStage, dt);
-  requestAnimationFrame(frame);
+  try { update(dt); } catch (e) { reportError(e, 'update'); }
+  try { draw(); } catch (e) { reportError(e, 'draw'); try { ctx.restore(); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); } catch (_) {} }
+  try {
+    if (!$('wardrobe').hidden && wStage){ wStage.spin = !wStage.showFx; drawStage($('wPrev'), wStage, dt, trying, trying.jacket !== 'auto' ? JACKET_HEX[trying.jacket] : '#2d5f9e'); }
+    if (!$('end').hidden && endStage) drawStage($('flour'), endStage, dt);
+  } catch (e) { reportError(e, 'stage'); }
 }
+// anything that goes wrong on a player's phone is sent to the server log (once per kind of error), so it can be fixed
+const reported = new Set();
+function reportError(e, where){
+  const msg = String(e && (e.stack || e.message) || e).slice(0, 600), key = where + String(e && e.message || e);
+  if (reported.has(key) || reported.size > 20) return; reported.add(key);
+  console.error(e);
+  try { fetch('/api/clientlog', {method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify({where, msg, ua: navigator.userAgent, map: MAP, inGame, state: roomState, v: 'build-1023b'})}); } catch (_) {}
+}
+addEventListener('error', e => reportError(e.error || e.message, 'window'));
+addEventListener('unhandledrejection', e => reportError(e.reason, 'promise'));
+if (!CanvasRenderingContext2D.prototype.roundRect) CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r){ // older phones
+  r = Math.min(r, w/2, h/2); this.moveTo(x + r, y); this.arcTo(x + w, y, x + w, y + h, r); this.arcTo(x + w, y + h, x, y + h, r); this.arcTo(x, y + h, x, y, r); this.arcTo(x, y, x + w, y, r); this.closePath(); };
 requestAnimationFrame(frame);
 })();
 </script>
