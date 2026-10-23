@@ -98,6 +98,8 @@ function dailyFor(day) {
 
 // starting powerups: key -> [level, coins per round]
 const LOADOUT = { c: [2, 15], t: [3, 15], w: [4, 15], m: [5, 20], p: [6, 25], l: [7, 25], b: [8, 20], s: [9, 25], r: [10, 30], k: [12, 30], g: [14, 35], d: [16, 35], q: [18, 40] };
+// extra powerup slots: [level needed, coins]. Everyone starts with one.
+const SLOT_UNLOCKS = [[4, 250], [12, 750]];
 const MAX_LEVEL = 50, START_COINS = 50, IMPORT_CAP = 3000;
 const xpForLevel = L => 300 * (L - 1) + 50 * (L - 1) * (L - 2); // total XP needed to reach level L
 const levelFor = xp => { let L = 1; while (L < MAX_LEVEL && xp >= xpForLevel(L + 1)) L++; return L; };
@@ -308,6 +310,15 @@ class Accounts {
   logout(token) { return typeof token === 'string' ? this.store.delSession(sha(token)) : null; }
 
   isHalloween() { return isHalloween(); }
+  slots(acct) { return Math.min(1 + SLOT_UNLOCKS.length, acct.data.slots || 1); }
+  async buySlot(acct) {
+    const have = this.slots(acct), next = SLOT_UNLOCKS[have - 1];
+    if (!next) throw new UserError('You already have every powerup slot.');
+    const [lvl, price] = next;
+    if (this.level(acct) < lvl) throw new UserError(`Reach level ${lvl} to unlock another slot.`);
+    if (acct.data.coins < price) throw new UserError(`You need ${price - acct.data.coins} more coins.`);
+    acct.data.coins -= price; acct.data.slots = have + 1; await this.save(acct);
+  }
   level(acct) { return levelFor(acct.data.xp); }
   owns(acct, cat, id) { return isFree(cat, id) || (!!acct && acct.data.owned.includes(cat + ':' + id)); }
   cleanLook(acct, raw) {
@@ -382,7 +393,7 @@ class Accounts {
     return { name: acct.name, coins: d.coins, xp: d.xp, level: L, levelXp: xpForLevel(L), nextXp: L < MAX_LEVEL ? xpForLevel(L + 1) : null,
       owned: d.owned, look: this.cleanLook(acct, d.look), loadout: d.loadout, rounds: d.rounds, wins: d.wins,
       google: !!acct.google, hasPassword: !!acct.hasPw, hasRecovery: !!d.recovery,
-      daily: this.dailyView(acct), ach: d.ach || {}, progress: Object.fromEntries(Object.keys(ACH_BY_STAT).map(k => [k, this.statValue(acct, k)])) };
+      slots: this.slots(acct), nextSlot: SLOT_UNLOCKS[this.slots(acct) - 1] || null, daily: this.dailyView(acct), ach: d.ach || {}, progress: Object.fromEntries(Object.keys(ACH_BY_STAT).map(k => [k, this.statValue(acct, k)])) };
   }
   async buy(acct, cat, id) {
     const it = item(cat, id); if (!it) throw new UserError('That item doesn\'t exist.');

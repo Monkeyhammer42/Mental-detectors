@@ -197,6 +197,7 @@ class Room {
     this.public = !!opts.public;     // Quick Play: anyone can drop in, rounds start on their own
     this.tutorial = !!opts.tutorial; // one player, a practice dummy, no surprises
     this.autoT = null;
+    this.theme = ''; // 'halloween': any map at night, with pumpkins, bats, ghosts and spooky finds
     this.clients = new Map(); // ws -> {id, name, col}
     this.state = 'lobby';
     this.host = null;
@@ -215,7 +216,7 @@ class Room {
   send(ws, obj) { if (ws.readyState === 1) ws.send(JSON.stringify(obj)); }
   broadcast(obj) { const s = JSON.stringify(obj); for (const ws of this.clients.keys()) if (ws.readyState === 1) ws.send(s); }
   lobbyMsg() {
-    this.broadcast({ t: 'lobby', code: this.code, host: this.host, state: this.state, map: this.mapId, public: this.public ? 1 : 0, auto: this.autoT != null ? Math.ceil(this.autoT) : null,
+    this.broadcast({ t: 'lobby', code: this.code, host: this.host, state: this.state, map: this.mapId, theme: this.theme, public: this.public ? 1 : 0, auto: this.autoT != null ? Math.ceil(this.autoT) : null,
       players: [...this.clients.values()].map(c => ({ id: c.id, name: c.name, col: c.col, lvl: c.lvl, guest: !c.acct })) });
   }
   addClient(ws, name, rawLook, acct) {
@@ -227,7 +228,7 @@ class Room {
     if (this.host === null) this.host = c.id;
     this.send(ws, { t: 'hello', you: c.id });
     if (this.state === 'play') {
-      const d = this.makeDigger(c.id, c.name, c.col, false, Math.random() * 6, c.look, c.lvl);
+      const d = this.makeDigger(c.id, c.name, c.col, false, Math.random() * 6, c.look, c.lvl); d.slots = acct ? accounts.slots(acct) : 1;
       this.diggers.push(d);
       this.ev.push(['join', { id: d.id, name: d.name, col: d.col, bot: 0, look: d.look, lvl: d.lvl }]);
       this.send(ws, this.initMsg(c.id));
@@ -253,7 +254,7 @@ class Room {
   makeDigger(id, name, col, isBot, slot, look, lvl) {
     const a = slot / 6 * Math.PI * 2 + 0.4;
     return { id, name, col, isBot, look: look || botLook(), lvl: isBot ? 1 + (Math.random() * 15 | 0) : lvl || 0, lucky: 0, x: this.M.x + Math.cos(a) * 170, y: this.M.y + 10 + Math.sin(a) * 140, dir: a,
-      bag: [], banked: 0, stun: 0, immune: 0, bonkCd: 0, swing: 0, moving: false, lastDig: 0, power: null, fx: {}, padlock: false, carry: null, grief: 0, griefT: 0, tired: 0,
+      bag: [], banked: 0, stun: 0, immune: 0, bonkCd: 0, swing: 0, moving: false, lastDig: 0, power: null, held: [], sel: 0, slots: 1, fx: {}, padlock: false, carry: null, grief: 0, griefT: 0, tired: 0,
       ai: isBot ? { mode: 'hunt', item: null, think: 0, digT: 0, digRate: 2 + Math.random() * 1, bankAt: 40 + Math.random() * 110,
         aggro: 0.3 + Math.random() * 0.6, robCd: 4 + Math.random() * 6, chase: 0, victim: null, loot: null,
         lx: 0, ly: 0, stuckT: 0, detour: 0, detourA: 0, wander: null } : null };
@@ -282,7 +283,7 @@ class Room {
     this.map = MAPS[this.mapId]; this.M = this.map.museum;
     this.resetWorld();
     const humans = [...this.clients.values()];
-    humans.forEach((c, i) => this.diggers.push(this.makeDigger(c.id, c.name, c.col, false, i, c.look, c.lvl)));
+    humans.forEach((c, i) => { const d = this.makeDigger(c.id, c.name, c.col, false, i, c.look, c.lvl); d.slots = c.acct ? accounts.slots(c.acct) : 1; this.diggers.push(d); });
     for (const [ws, c] of this.clients) if (c.acct) {
       const got = accounts.checkAch(c.acct, ['rounds', 'wins', 'level', 'owned']); // catches up older accounts
       if (got.length) this.send(ws, { t: 'profile', profile: accounts.profile(c.acct), ach: got.map(x => x.id) });
@@ -310,13 +311,13 @@ class Room {
     for (const [ws, c] of this.clients) if (c.acct) accounts.chargeLoadout(c.acct).then(k => {
       if (!k || this.state !== 'play') return;
       const d = this.diggers.find(x => x.id === c.id); if (d) this.givePower(d, k, 'loadout');
-      this.send(ws, { t: 'profile', profile: accounts.profile(c.acct) });
+      this.send(ws, { t: 'profile', profile: accounts.profile(c.acct), charged: { k, coins: LOADOUT_CFG[k][1] } });
     }).catch(e => console.error('loadout', e.message));
     for (const [ws, c] of this.clients) this.send(ws, this.initMsg(c.id));
     this.lobbyMsg();
   }
   initMsg(you) {
-    return { t: 'init', you, types: TYPES, powers: POWERS, world: WORLD, museum: this.M, map: this.mapId, circle: this.map.circle || null, obstacles: this.map.obstacles || [], ice: this.map.ice || null, slippery: !!this.map.slippery, tide: this.map.tide || null, wreck: this.map.wreck || null, top: this.map.top, sea: Math.round(this.sea), round: ROUND, dusk: DUSK, tl: this.timeLeft, event: this.event ? { kind: this.event.kind, left: this.event.dur - this.event.t, dur: this.event.dur, data: this.event.data } : null,
+    return { t: 'init', you, theme: this.spooky() && this.mapId !== 'haunted' ? 'halloween' : '', types: TYPES, powers: POWERS, world: WORLD, museum: this.M, map: this.mapId, circle: this.map.circle || null, obstacles: this.map.obstacles || [], ice: this.map.ice || null, slippery: !!this.map.slippery, tide: this.map.tide || null, wreck: this.map.wreck || null, top: this.map.top, sea: Math.round(this.sea), round: ROUND, dusk: DUSK, tl: this.timeLeft, event: this.event ? { kind: this.event.kind, left: this.event.dur - this.event.t, dur: this.event.dur, data: this.event.data } : null,
       diggers: this.diggers.map(d => ({ id: d.id, name: d.name, col: d.col, bot: d.isBot ? 1 : 0, look: d.look, lvl: d.lvl, npc: d.npc ? 1 : 0 })),
       traps: (this.traps || []).map(tr => [tr.id, Math.round(tr.x), Math.round(tr.y), tr.owner]),
       buried: this.buried.map(b => [b.id, Math.round(b.x), Math.round(b.y), b.ti, b.prog, b.name, b.owner || 0]),
@@ -344,8 +345,10 @@ class Room {
   // ----- world -----
   humanNear(x, y, r) { return this.diggers.some(d => !d.isBot && Math.hypot(d.x - x, d.y - y) < r); }
   inHole(x, y, pad) { return this.holes.some(h => Math.hypot(h.x - x, h.y - y) < h.r + pad); }
+  names() { return this.theme === 'halloween' && seasonOn('halloween') ? HAUNTED_NAMES : MAP_NAMES[this.mapId] || {}; }
+  spooky() { return this.mapId === 'haunted' || (this.theme === 'halloween' && seasonOn('halloween')); }
   itemName(ti, wreck) {
-    const pool = wreck ? WRECK_NAMES[ti] : (MAP_NAMES[this.mapId] || {})[ti];
+    const pool = wreck ? WRECK_NAMES[ti] : this.names()[ti];
     return pick(pool || TYPES[ti].names);
   }
   spawnItem(awayFromPlayers, forceTi, band) {
@@ -361,7 +364,7 @@ class Room {
       let ti = forceTi != null ? forceTi : Math.random() < BOX_CHANCE ? BOX : pickTypeIdx();
       if (forceTi == null && ti < 3 && this.event && this.event.kind === 'goldrush') ti++;
       let name = this.itemName(ti);
-      if (ti === HEAVY) { const used = new Set([...this.buried, ...this.heavies].map(o => o.name)); name = pick(((MAP_NAMES[this.mapId] || {})[HEAVY] || TYPES[HEAVY].names).filter(n => !used.has(n))) || name; }
+      if (ti === HEAVY) { const used = new Set([...this.buried, ...this.heavies].map(o => o.name)); name = pick((this.names()[HEAVY] || TYPES[HEAVY].names).filter(n => !used.has(n))) || name; }
       const b = { id: this.uid++, x, y, ti, name, prog: 0 };
       this.buried.push(b);
       if (this.state === 'play') this.ev.push(['spawn', b.id, Math.round(x), Math.round(y), ti, b.name, 0]);
@@ -456,7 +459,7 @@ class Room {
   }
   startEvent() {
     // map-specific events come up twice as often as the shared ones
-    const options = Object.keys(EVENTS).filter(k => (!EVENTS[k].maps || EVENTS[k].maps.includes(this.mapId)) && !this.usedEvents.includes(k)).flatMap(k => EVENTS[k].maps ? [k, k] : [k]);
+    const options = Object.keys(EVENTS).filter(k => (!EVENTS[k].maps || EVENTS[k].maps.includes(this.mapId) || (k === 'ghosts' && this.spooky())) && !this.usedEvents.includes(k)).flatMap(k => EVENTS[k].maps ? [k, k] : [k]);
     if (!options.length) return;
     const kind = pick(options); this.usedEvents.push(kind);
     const ev = this.event = { kind, t: 0, dur: EVENTS[kind].dur, data: {}, boltT: 2 };
@@ -711,15 +714,18 @@ class Room {
   }
 
   // ----- powerups -----
+  // powerups: you can hold as many as your slots allow and pick which one is ready to use
+  syncPower(d) { d.sel = Math.max(0, Math.min(d.sel || 0, d.held.length - 1)); d.power = d.held[d.sel] || null; }
   givePower(d, k, src) {
-    if (k === 'p') d.padlock = true; else d.power = k;
+    if (k === 'p') d.padlock = true;
+    else { if (d.held.length < (d.slots || 1)) { d.held.push(k); d.sel = d.held.length - 1; } else d.held[d.sel] = k; this.syncPower(d); }
     this.ev.push(['power', d.id, k, src]);
     // bots use most things straight away; they save area attacks until someone's close
     if (d.isBot && k !== 'p' && k !== 'q' && k !== 'k') this.usePower(d);
   }
   usePower(d) {
     const k = d.power; if (!k || d.stun > 0) return;
-    d.power = null;
+    d.held.splice(d.sel, 1); this.syncPower(d);
     if (k === 'd') this.plantDecoy(d);
     else if (k === 'l') d.lucky = 3;
     else if (k === 'b') this.plantTrap(d);
@@ -1099,6 +1105,7 @@ class Room {
       const h = this.heavies.find(x => x.id === msg.id); if (h) this.lift(d, h);
     } else if (msg.t === 'drop') {
       this.unlift(d);
+    } else if (msg.t === 'sel') { if (d.held.length > 1) { d.sel = (msg.i | 0) % d.held.length; this.syncPower(d); }
     } else if (msg.t === 'use') {
       this.usePower(d);
     } else if (msg.t === 'buy') {
@@ -1113,7 +1120,7 @@ class Room {
       const before = this.autoT == null ? null : Math.ceil(this.autoT);
       if (this.autoT == null) this.autoT = this.state === 'end' ? 15 : 10;
       this.autoT -= dt;
-      if (this.autoT <= 0){ this.autoT = null; this.mapId = pick(openMaps()); this.start(); return; }
+      if (this.autoT <= 0){ this.autoT = null; this.mapId = pick(openMaps()); this.theme = seasonOn('halloween') && Math.random() < .5 ? 'halloween' : ''; this.start(); return; }
       if (Math.ceil(this.autoT) !== before) this.lobbyMsg();
     }
     if (this.state !== 'play') return;
@@ -1170,7 +1177,7 @@ class Room {
   statsFromEvents(evs) {
     const ids = s => String(s || '').split(',').filter(Boolean).map(Number);
     for (const e of evs) switch (e[0]) {
-      case 'bank': this.stat(e[1], 'banked', e[2]); if (this.timeLeft <= 5) this.stat(e[1], 'clutch'); if (this.mapId === 'haunted') this.stat(e[1], 'hauntedBank', e[2]); break;
+      case 'bank': this.stat(e[1], 'banked', e[2]); if (this.timeLeft <= 5) this.stat(e[1], 'clutch'); if (this.spooky()) this.stat(e[1], 'hauntedBank', e[2]); break;
       case 'hbank': for (const id of ids(e[2])) this.stat(id, 'heavies'); break;
       case 'bonk': if (e[3] >= 0) { this.stat(e[1], 'robs'); if (e[5]) this.stat(e[1], 'gloves'); } break;
       case 'shock': this.stat(e[1], 'shockMax', ids(e[4]).length, 'max'); break;
@@ -1192,7 +1199,7 @@ class Room {
     const s = {
       t: 's', tl: Math.round(this.timeLeft * 10) / 10, sea: this.map.tide ? Math.round(this.sea) : undefined,
       d: this.diggers.map(d => [d.id, Math.round(d.x), Math.round(d.y), Math.round(d.dir * 100) / 100, d.stun > 0 ? 1 : 0, d.immune > 0 ? 1 : 0,
-        d.bag.map(b => b.ti).join(''), d.banked, d.moving ? 1 : 0, d.power || '',
+        d.bag.map(b => b.ti).join(''), d.banked, d.moving ? 1 : 0, d.held.length > 1 ? d.held.join('') + ':' + d.sel : d.power || '',
         Object.keys(d.fx).map(k => k + Math.ceil(d.fx[k])).join('') + (d.padlock ? 'p' : '') + (d.lucky > 0 ? 'l' + d.lucky : '') + (d.tired > 0 ? 'z' + Math.ceil(d.tired) : '')]),
       hv: this.heavies.map(h => [h.id, Math.round(h.x), Math.round(h.y), h.carriers.map(c => c.id).join(','), h.hp, Math.ceil(h.wait)]),
       c: this.crates.map(c => [c.id, Math.round(c.x), Math.round(c.y)]),
@@ -1279,6 +1286,7 @@ async function api(req, res) {
       for (const r of rooms.values()) for (const c of r.clients.values()) if (c.acct === acct) r.setLook(c.id, acct.data.look);
       return send(200, { profile: accounts.profile(acct) });
     }
+    if (path === '/api/slot') { await accounts.buySlot(acct); return send(200, { profile: accounts.profile(acct) }); }
     if (path === '/api/loadout') { await accounts.setLoadout(acct, body.k); return send(200, { profile: accounts.profile(acct) }); }
     return send(404, { error: 'Not found.' });
   } catch (e) {
@@ -1397,6 +1405,7 @@ function onConnection(ws) {
     if (msg.t === 'start') { if (me === room.host && room.state !== 'play' && !room.public) room.start(); return; }
     if (msg.t === 'look') { room.setLook(me, msg.look); return; }
     if (msg.t === 'map') { if (me === room.host && !room.public) room.setMap(String(msg.id)); return; }
+    if (msg.t === 'theme') { if (me === room.host && !room.public && room.state !== 'play') { room.theme = msg.on && seasonOn('halloween') ? 'halloween' : ''; room.lobbyMsg(); } return; }
     room.onInput(me, msg);
   });
   ws.on('close', () => {

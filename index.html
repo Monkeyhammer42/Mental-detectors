@@ -160,6 +160,8 @@ canvas.stage{width:100%;height:auto;border-radius:12px;display:block;margin-bott
 .wgrid button small.own{color:#3f5a2a}
 .panel button.wardOpen,.panel .row2 button.achOpen{display:flex;justify-content:center;align-items:center;gap:4px;margin-top:10px}
 .panel .row2 button.wardOpen,.panel .row2 button.achOpen,.panel .row2 button.loadOpen{font-size:14px;padding:10px 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.panel .row2 button.loadOpen{flex-direction:column;gap:1px;padding:6px 4px;line-height:1.1}
+.panel .row2 button.loadOpen small{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;font:800 11px var(--body);letter-spacing:0;opacity:.85}
 .panel button.backBtn{margin-top:10px;font-size:14px;padding:10px;color:#8a4a1c;border-color:#8a4a1c}
 #wMsg:empty{display:none}
 .row2{display:flex;gap:8px}
@@ -199,6 +201,16 @@ canvas.stage{width:100%;height:auto;border-radius:12px;display:block;margin-bott
 #banner span{display:block;font-size:13px;font-weight:800;margin-top:3px;color:var(--paper)}
 #codeBox,#pickName{z-index:5}
 #achv{z-index:7}
+.slotBox{display:flex;align-items:center;gap:10px;background:#ece3c9;border-radius:12px;padding:8px 10px;margin:0 0 10px}
+.slotBox>div{flex:1}.slotBox b{display:block;font-size:13px}
+.slotBox small{display:block;font-size:11px;color:#6d5f38}
+#slotPips{display:flex;gap:4px;margin:3px 0}#slotPips i{width:18px;height:10px;border-radius:3px;border:2px solid #3f5a2a}#slotPips i.on{background:#3f5a2a}
+.panel .slotBox button{width:auto;margin:0;padding:8px 10px;font-size:13px}
+#powSlots{position:absolute;display:flex;flex-direction:column;gap:6px;right:calc(108px + env(safe-area-inset-right,0px));bottom:calc(150px + env(safe-area-inset-bottom,0px))}
+#game.left #powSlots,#game.split.swap #powSlots{right:auto;left:calc(108px + env(safe-area-inset-left,0px))}
+#game.high #powSlots{bottom:calc(274px + env(safe-area-inset-bottom,0px))}
+#powSlots button{width:52px;height:30px;border-radius:9px;border:2px solid rgba(255,255,255,.6);background:rgba(24,30,16,.82);color:var(--paper);font:400 10px var(--display);padding:0}
+#powSlots button.empty{border-style:dashed;opacity:.5}
 #lb{z-index:7}
 .panel button.lbOpen{margin-top:8px;font-size:14px;padding:10px}
 .daily{margin:10px 0 2px;background:#ece3c9;border-radius:12px;padding:8px 10px}
@@ -225,6 +237,8 @@ canvas.stage{width:100%;height:auto;border-radius:12px;display:block;margin-bott
 .hwBanner b{display:block;font:400 15px var(--display);color:#ff9a3a}
 .panel .mapPick button.hwMap{width:100%;margin:0 0 10px;border-color:#6a2c8a;color:#6a2c8a}
 .panel .mapPick button.hwMap.on{background:#4a2266;color:#ffd9a0}
+.panel .mapPick button.themeBtn{width:100%;margin:0 0 10px;border-color:#c45a10;color:#c45a10}
+.panel .mapPick button.themeBtn.on{background:#c45a10;color:#fff3e0}
 #wGrid button.seasonal{border-color:#ff8a2a!important}
 #wGrid button.seasonal small:not(.own)::after{content:" \00B7 HALLOWEEN";color:#c45a10}
 .panel button.tutBtn{margin-top:10px;font-size:15px;padding:10px;display:flex;justify-content:center;align-items:center;gap:8px}
@@ -302,6 +316,7 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
   <button id="bonkBtn" class="btn" aria-label="Bonk">BONK</button>
   <button id="digBtn" class="btn" aria-label="Dig">DIG</button>
   <button id="powBtn" class="btn" aria-label="Use powerup" hidden></button>
+  <div id="powSlots" hidden></div>
   <div id="shop" hidden>
     <h3>Shop <small id="shopPts">0 pts</small></h3>
     <button id="buy-p" title="Padlock: blocks a bonk while you carry finds"><div>Lock</div><b>100</b></button>
@@ -406,11 +421,11 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
       <button id="shareBtn" class="ghost">Send invite link</button>
       <p class="note" id="shareNote"></p>
       <label>Map</label>
-      <div class="mapPick"><div class="row2"><button data-map="field">Farmer's Field</button><button data-map="beach">The Beach</button></div><div class="row2"><button data-map="park">The Park</button><button data-map="mountain">The Mountain</button></div><button data-map="haunted" class="hwOnly hwMap" hidden>Haunted Field &middot; Halloween</button></div>
+      <div class="mapPick"><div class="row2"><button data-map="field">Farmer's Field</button><button data-map="beach">The Beach</button></div><div class="row2"><button data-map="park">The Park</button><button data-map="mountain">The Mountain</button></div><button data-map="haunted" class="hwOnly hwMap" hidden>Haunted Field &middot; Halloween</button><button class="hwOnly themeBtn" hidden>Halloween night: Off</button></div>
       <label>Diggers here</label>
       <ul class="plist" id="lobbyList"></ul>
       <p class="note">Bots fill any empty spots up to 6 diggers.</p>
-      <div class="row2"><button class="ghost wardOpen">Wardrobe</button><button class="ghost loadOpen">Start with: <span class="loadN">none</span></button></div>
+      <div class="row2"><button class="ghost wardOpen">Wardrobe</button><button class="ghost loadOpen">Powerups<small class="loadN">none</small></button></div>
       <button id="startBtn">Start round</button>
       <p class="note" id="waitNote" hidden>Waiting for the host to start&hellip;</p>
       <button class="ghost backBtn">Back to menu</button>
@@ -426,10 +441,10 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
       <div class="daily"></div>
       <ul class="plist" id="endList"></ul>
       <p id="endNote"></p>
-      <div class="mapPick"><div class="row2"><button data-map="field">Farmer's Field</button><button data-map="beach">The Beach</button></div><div class="row2"><button data-map="park">The Park</button><button data-map="mountain">The Mountain</button></div><button data-map="haunted" class="hwOnly hwMap" hidden>Haunted Field &middot; Halloween</button></div>
+      <div class="mapPick"><div class="row2"><button data-map="field">Farmer's Field</button><button data-map="beach">The Beach</button></div><div class="row2"><button data-map="park">The Park</button><button data-map="mountain">The Mountain</button></div><button data-map="haunted" class="hwOnly hwMap" hidden>Haunted Field &middot; Halloween</button><button class="hwOnly themeBtn" hidden>Halloween night: Off</button></div>
       <button id="againBtn">Play again</button>
       <p class="note" id="againNote" hidden>Waiting for the host to start the next round&hellip;</p>
-      <div class="row2"><button class="ghost wardOpen">Wardrobe</button><button class="ghost loadOpen">Start with: <span class="loadN">none</span></button></div>
+      <div class="row2"><button class="ghost wardOpen">Wardrobe</button><button class="ghost loadOpen">Powerups<small class="loadN">none</small></button></div>
       <button class="ghost backBtn">Back to menu</button>
     </div>
   </div>
@@ -449,8 +464,9 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 
   <div id="loadout" class="overlay" hidden>
     <div class="panel wpanel">
-      <div class="whead"><h2>Start with</h2><span class="coins"><i></i><b class="coinN">0</b></span></div>
-      <p class="note">Begin each round holding one powerup. It's paid from your coins as the round starts.</p>
+      <div class="whead"><h2>Powerups</h2><span class="coins"><i></i><b class="coinN">0</b></span></div>
+      <div class="slotBox"><div><b>Powerup slots</b><span id="slotPips"></span><small id="slotTxt"></small></div><button id="slotBuy" class="alt"></button></div>
+      <p class="note"><b>Start each round with</b> a powerup of your choice. It costs its price <b>every round</b>, taken from your coins as the round starts, whether or not you used it last time. Pick Nothing to stop paying.</p>
       <div class="wgrid lgrid" id="lGrid"></div>
       <p class="note" id="lMsg"></p>
       <button id="lDone" class="alt">Done</button>
@@ -534,7 +550,8 @@ let ws = null, myId = null, hostId = null, roomCode = null, roomState = 'lobby',
 let buried = new Map(), holes = [], loose = new Map(), diggers = new Map(), magpies = new Map(), crates = new Map(), heavies = new Map(), trails = [], POWERS = {};
 const BOX = 4, POW_COL = {c: '#8fe6ff', t: '#ffb347', w: '#7ee07e', p: '#d9d9d9', s: '#f2d16b', d: '#ff8ad8', m: '#7fb3ff', l: '#5fd35f', r: '#e8c47a', b: '#ffe14d', k: '#9acd32', g: '#ff9f43', q: '#ff5e5e', x: '#9acd32', z: '#ff7a6b'};
 let traps = new Map(), effects = [], flies = [];
-const bird = () => ({beach: 'Seagull', park: 'Pigeon', mountain: 'Crow', haunted: 'Bat'})[MAP] || 'Magpie';
+const spooky = () => MAP === 'haunted' || THEME === 'halloween';
+const bird = () => spooky() ? 'Bat' : ({beach: 'Seagull', park: 'Pigeon', mountain: 'Crow'})[MAP] || 'Magpie';
 let curEv = null, bolts = new Map(), furrows = [], flash = 0, bannerT = 0, chugT = 0;
 const EV_TXT = {
   storm: () => ['Thunderstorm!', 'Lightning strikes near diggers. Keep out of the red circles'],
@@ -576,7 +593,7 @@ function startEvent(kind, dur, data, elapsed){
   if (kind === 'skiers') [0, 200].forEach(ms => setTimeout(() => noise(.5, 2500, .6, .4, 'highpass'), ms));
   if (kind === 'snowmobile') [0, 300].forEach(ms => setTimeout(() => beep(330, .25, 'sawtooth', .06), ms));
 }
-let CIRCLE = null, OBST = [], ICE = null, SLIPPERY = false, keeper = null, skiers = [], snowT = 0;
+let THEME = '', CIRCLE = null, OBST = [], ICE = null, SLIPPERY = false, keeper = null, skiers = [], snowT = 0;
 let MAP = 'field', TIDE = null, WRECK = null, TOP = 70, sea = Infinity, seaT = Infinity, seaDir = 0, lobbyMap = 'field';
 let rings = [], floats = [], pops = [], dirt = [];
 let sparks = [], shake = 0, pin = null, t = 0, timeLeft = 180, pulsePhase = 0, signal = 0, target = null, muted = false, me = null, lastSend = 0, sentX = 0, sentY = 0, sentDir = 0;
@@ -762,6 +779,7 @@ function paintMap(){
   if (MAP === 'haunted'){ paintHaunted(); return; }
   if (MAP === 'beach'){ paintBeach(); detailBeach(); } else if (MAP === 'park'){ paintPark(); detailPark(); }
   else if (MAP === 'mountain'){ paintMountain(); detailMountain(); } else { paintField(); detailField(); }
+  if (THEME === 'halloween') spookify();
 }
 const seeded = n => { let sd = n; return () => (sd = (sd*16807) % 2147483647) / 2147483647; };
 const clearOfMuseum = (x, y, pad) => !(Math.abs(x - MUSEUM.x) < MUSEUM.w/2 + pad && Math.abs(y - MUSEUM.y) < MUSEUM.h/2 + pad);
@@ -773,6 +791,25 @@ function leafyTree(g, x, y, r, rnd, tones){
   for (let i = 0; i < 9; i++){ const a = i/9*Math.PI*2 + rnd(), rr = r*(.55 + rnd()*.35); g.fillStyle = m; g.beginPath(); g.arc(x + Math.cos(a)*rr*.6, y + Math.sin(a)*rr*.6, r*.48, 0, 7); g.fill(); }
   for (let i = 0; i < 5; i++){ const a = -2.2 + rnd()*1.4, rr = r*rnd()*.5; g.fillStyle = l; g.beginPath(); g.arc(x - r*.2 + Math.cos(a)*rr, y - r*.2 + Math.sin(a)*rr, r*.3, 0, 7); g.fill(); }
   g.fillStyle = 'rgba(255,255,255,.12)'; for (let i = 0; i < 14; i++){ const a = rnd()*7, rr = rnd()*r; g.beginPath(); g.arc(x + Math.cos(a)*rr, y + Math.sin(a)*rr, 1.6, 0, 7); g.fill(); }
+}
+function jackOLantern(g, x, y, s = 1){
+  const gr = g.createRadialGradient(x, y, 0, x, y, 40*s); gr.addColorStop(0, 'rgba(255,150,40,.35)'); gr.addColorStop(1, 'rgba(255,150,40,0)'); g.fillStyle = gr; g.fillRect(x - 40*s, y - 40*s, 80*s, 80*s);
+  g.fillStyle = '#d86a14'; g.beginPath(); g.ellipse(x, y, 10*s, 8*s, 0, 0, 7); g.fill(); g.strokeStyle = '#a84e0c'; g.lineWidth = 1; g.beginPath(); g.ellipse(x, y, 4*s, 8*s, 0, 0, 7); g.stroke();
+  g.fillStyle = '#ffd36a'; g.beginPath(); g.moveTo(x - 6*s, y - 2*s); g.lineTo(x - 3*s, y - 5*s); g.lineTo(x - 1*s, y - 2*s); g.fill(); g.beginPath(); g.moveTo(x + 1*s, y - 2*s); g.lineTo(x + 3*s, y - 5*s); g.lineTo(x + 6*s, y - 2*s); g.fill(); g.fillRect(x - 5*s, y + 2*s, 10*s, 2*s);
+  g.fillStyle = '#3d6a2a'; g.fillRect(x - 1*s, y - 11*s, 2.5*s, 4*s);
+}
+// Halloween dressing for any map: dusky tint, pumpkins, cobwebs, leaves and toadstools
+function spookify(){
+  const g = bg.getContext('2d'), rnd = seeded(1031);
+  g.fillStyle = MAP === 'mountain' ? 'rgba(40,30,80,.32)' : 'rgba(30,15,50,.3)'; g.fillRect(0, 0, WORLD, WORLD);
+  const ok = (x, y, pad) => clearOfMuseum(x, y, pad) && !OBST.some(o => Math.hypot(o.x - x, o.y - y) < o.r + 22) && (!CIRCLE || Math.hypot(x - CIRCLE.x, y - CIRCLE.y) < CIRCLE.r - 50) && !(MAP === 'beach' && y < 400);
+  for (let i = 0; i < 220; i++){ const x = rnd()*WORLD, y = rnd()*WORLD; if (!ok(x, y, 30)) continue; g.fillStyle = ['#7a4a1e', '#a0522d', '#5a3a1c'][i % 3]; g.beginPath(); g.ellipse(x, y, 3, 1.6, rnd()*3, 0, 7); g.fill(); }
+  for (let i = 0; i < 26; i++){ const x = rnd()*WORLD, y = rnd()*WORLD; if (!ok(x, y, 80)) continue; g.fillStyle = '#e8dfc4'; g.fillRect(x - 1, y, 2, 4); g.fillStyle = '#b8323a'; g.beginPath(); g.arc(x, y, 4, Math.PI, 0); g.fill(); g.fillStyle = '#fff'; g.fillRect(x - 2, y - 2, 1.5, 1.5); }
+  for (let i = 0; i < 34; i++){ const x = 80 + rnd()*(WORLD - 160), y = 80 + rnd()*(WORLD - 160); if (ok(x, y, 40)) jackOLantern(g, x, y, .9 + rnd()*.4); }
+  g.strokeStyle = 'rgba(235,235,245,.45)'; g.lineWidth = .8; // cobwebs strung on trees and rocks
+  for (const o of OBST){ if (o.kind === 'pond' || rnd() < .4) continue; const a0 = rnd()*7, cx2 = o.x + Math.cos(a0)*o.r*.7, cy2 = o.y + Math.sin(a0)*o.r*.7;
+    for (let k = 0; k < 6; k++){ const a = k/6*Math.PI*2; g.beginPath(); g.moveTo(cx2, cy2); g.lineTo(cx2 + Math.cos(a)*o.r*.6, cy2 + Math.sin(a)*o.r*.6); g.stroke(); }
+    for (const r of [.25, .45]){ g.beginPath(); g.arc(cx2, cy2, o.r*r, 0, 7); g.stroke(); } }
 }
 function paintHaunted(){
   bg.width = bg.height = WORLD;
@@ -1008,7 +1045,7 @@ function noise(dur, freq, q, vol, type = 'bandpass'){
 }
 // magpie "chak-chak-chak" rattle
 const caw = (v = 1) => {
-  if (MAP === 'haunted'){ // bat screech
+  if (spooky()){ // bat screech
     if (!ac || muted || v < .02) return;
     for (let i = 0; i < 3; i++) setTimeout(() => { beep(3200 + Math.random()*900, .05, 'square', .025*v); beep(2600, .04, 'sawtooth', .02*v); }, i*70);
     return;
@@ -1062,7 +1099,7 @@ const POW_INFO = {
   m: ['Magnet', 'Pulls in dropped finds and scrap'], l: ['Lucky charm', 'Next 3 finds upgraded a tier'], r: ['Treasure map', 'Marks the best finds'],
   b: ['Banana peel', 'Trap: whoever slips drops their best find'], k: ['Stink bomb', "Scrambles nearby detectors"], g: ['Sticky glove', 'Next bonk steals into your bag'],
   q: ['Big bonk', 'Shockwave: everyone around you drops a find']};
-let SEASON = {}, roomPublic = false, autoIn = null, ACH = [], CAT = null, LOADOUT_CFG = {}, LEVELS = [], token = null, profile = null;
+let lobbyTheme = '', SEASON = {}, roomPublic = false, autoIn = null, ACH = [], CAT = null, LOADOUT_CFG = {}, LEVELS = [], token = null, profile = null;
 try { token = localStorage.getItem('fk-token'); } catch (_) {}
 const store = (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (_) {} };
 async function api(path, body){
@@ -1107,7 +1144,7 @@ function setProfile(p){
   document.querySelectorAll('.lvlN').forEach(el => el.textContent = p ? p.level : '-');
   document.querySelectorAll('.coinN').forEach(el => el.textContent = p ? p.coins : 0);
   const lk = p && p.loadout, cfg = lk && LOADOUT_CFG[lk];
-  document.querySelectorAll('.loadN').forEach(el => el.textContent = !p ? 'sign in' : lk ? `${powName(lk)}${cfg ? ' (' + cfg[1] + ')' : ''}` : 'none');
+  document.querySelectorAll('.loadN').forEach(el => el.textContent = !p ? 'Sign in' : lk ? `${powName(lk)} \u00B7 ${cfg ? cfg[1] : 0}/round` : `None \u00B7 ${p.slots || 1} slot${(p.slots || 1) > 1 ? 's' : ''}`);
 }
 async function boot(){
   try {
@@ -1411,6 +1448,11 @@ document.querySelectorAll('.wardOpen').forEach(b => b.addEventListener('click', 
 // ----- starting powerup -----
 function renderLoadout(){
   setProfile(profile);
+  const sl = profile ? profile.slots || 1 : 1, nx = profile && profile.nextSlot;
+  $('slotPips').innerHTML = [1, 2, 3].map(i => `<i class="${i <= sl ? 'on' : ''}"></i>`).join('');
+  $('slotTxt').textContent = `Hold ${sl} powerup${sl > 1 ? 's' : ''} at once in a round${sl > 1 ? ', and tap one to make it the one you use' : ''}.`;
+  $('slotBuy').hidden = !nx; if (nx) $('slotBuy').textContent = myLevel() < nx[0] ? `Level ${nx[0]}` : `+1 slot \u00B7 ${nx[1]}`;
+  $('slotBuy').disabled = !profile || !nx || myLevel() < nx[0] || profile.coins < nx[1];
   const g = $('lGrid'); g.innerHTML = '';
   const add = (k, title, desc, tag, locked) => {
     const b = document.createElement('button');
@@ -1435,6 +1477,7 @@ function renderLoadout(){
 }
 document.querySelectorAll('.loadOpen').forEach(b => b.addEventListener('click', () => { unlockAudio(); renderLoadout(); $('lMsg').textContent = $('lMsg').textContent || ''; $('loadout').hidden = false; }));
 $('lDone').addEventListener('click', () => { $('loadout').hidden = true; });
+$('slotBuy').addEventListener('click', async () => { try { setProfile((await api('/api/slot', {})).profile); chime(); renderLoadout(); } catch (e) { $('lMsg').textContent = e.message; } });
 
 // ---------- screens ----------
 function show(id){ for (const s of ['home','lobby','end','wardrobe','loadout','pickName','recover','codeBox','acct']) $(s).hidden = s !== id; }
@@ -1466,7 +1509,8 @@ $('shareBtn').addEventListener('click', async () => {
   try { await navigator.clipboard.writeText(url); $('shareNote').textContent = 'Link copied. Paste it to your mates.'; }
   catch (_) { $('shareNote').textContent = url; }
 });
-document.querySelectorAll('.mapPick button').forEach(b => b.addEventListener('click', () => send({t: 'map', id: b.dataset.map})));
+document.querySelectorAll('.mapPick button[data-map]').forEach(b => b.addEventListener('click', () => send({t: 'map', id: b.dataset.map})));
+document.querySelectorAll('.themeBtn').forEach(b => b.addEventListener('click', () => send({t: 'theme', on: lobbyTheme !== 'halloween'})));
 
 
 function renderLobby(players){
@@ -1483,6 +1527,7 @@ function renderLobby(players){
   const isHost = myId === hostId && !roomPublic;
   document.querySelectorAll('.mapPick').forEach(el => el.hidden = roomPublic);
   document.querySelectorAll('.mapPick button').forEach(b => { b.classList.toggle('on', b.dataset.map === lobbyMap); b.disabled = !isHost; });
+  document.querySelectorAll('.themeBtn').forEach(b => { const on = lobbyTheme === 'halloween' || lobbyMap === 'haunted'; b.classList.toggle('on', on); b.textContent = `Halloween night: ${on ? 'On' : 'Off'}`; b.disabled = !isHost || lobbyMap === 'haunted'; });
   $('startBtn').hidden = !isHost; $('waitNote').hidden = isHost;
   $('againBtn').hidden = !isHost; $('againNote').hidden = isHost;
   const auto = autoIn != null ? `Starting in ${autoIn}s…` : 'Starting soon…';
@@ -1517,11 +1562,11 @@ function connect(name, code, mode = ''){
 }
 function handle(m){
   if (m.t === 'error'){ if (m.signout){ token = null; store('fk-token', null); setProfile(null); } $('homeErr').textContent = m.msg; $('homeErr').dataset.keep = '1'; ws.close(); return; }
-  if (m.t === 'profile'){ setProfile(m.profile); return; }
+  if (m.t === 'profile'){ setProfile(m.profile); if (m.charged && me) floatAt(me.x, me.y - 74, `-${m.charged.coins} coins for your ${powName(m.charged.k)}`, '#ffd447', {small: true}); return; }
   if (m.t === 'reward'){ showReward(m); return; }
   if (m.t === 'hello'){ myId = m.you; $('homeErr').textContent = ''; return; }
   if (m.t === 'lobby'){
-    roomCode = m.code; hostId = m.host; roomState = m.state; lobbyMap = m.map || 'field'; roomPublic = !!m.public; autoIn = m.auto;
+    roomCode = m.code; hostId = m.host; roomState = m.state; lobbyMap = m.map || 'field'; roomPublic = !!m.public; autoIn = m.auto; lobbyTheme = m.theme || '';
     if (joinMode !== 'tutorial') history.replaceState(null, '', roomPublic ? location.pathname : `?room=${roomCode}`);
     renderLobby(m.players);
     if (joinMode === 'tutorial') return;
@@ -1536,7 +1581,7 @@ function startRound(m){
   if (joinMode === 'tutorial') setTimeout(startTutorial, 300);
   TYPES = m.types; POWERS = m.powers || {};
   MAP = m.map || 'field'; if (m.museum) MUSEUM = m.museum; TIDE = m.tide || null; WRECK = m.wreck || null; TOP = m.top || 70;
-  CIRCLE = m.circle || null; OBST = m.obstacles || []; ICE = m.ice || null; SLIPPERY = !!m.slippery; keeper = null; skiers = [];
+  THEME = m.theme || ''; CIRCLE = m.circle || null; OBST = m.obstacles || []; ICE = m.ice || null; SLIPPERY = !!m.slippery; keeper = null; skiers = [];
   sea = seaT = m.sea == null ? Infinity : m.sea; seaDir = 0; paintMap();
   curEv = null; bolts = new Map(); furrows = []; flash = 0; $('banner').hidden = true;
   if (m.event) startEvent(m.event.kind, m.event.dur, m.event.data, m.event.dur - m.event.left);
@@ -1551,7 +1596,7 @@ function startRound(m){
   for (const d of m.diggers) addDigger(d);
   me = diggers.get(myId);
   rings = []; floats = []; pops = []; dirt = [];
-  update.lastTl = undefined; inGame = true; show(null); chime(); document.body.classList.add('playing'); Music.start(MAP);
+  update.lastTl = undefined; inGame = true; show(null); chime(); document.body.classList.add('playing'); Music.start(spooky() ? 'haunted' : MAP);
 }
 function addDigger(d){
   diggers.set(d.id, {id: d.id, name: d.name, col: d.col, bot: d.bot, npc: d.npc || 0, look: d.look || {}, lvl: d.lvl || 0, x: MUSEUM.x, y: MUSEUM.y + 140, tx: null, ty: null, dir: 0, tdir: 0,
@@ -1572,7 +1617,7 @@ function applySnap(m){
   for (const [id, x, y, dir, stun, immune, bag, banked, moving, power, fx] of m.d){
     const d = diggers.get(id); if (!d) continue;
     d.stun = stun; d.immune = immune; d.bag = bag ? bag.split('').map(Number) : []; d.banked = banked;
-    d.power = power || ''; d.fx = {}; for (const [, k, n] of (fx || '').matchAll(/([a-z])(\d*)/g)) d.fx[k] = n ? +n : 1;
+    { const [hs, si] = String(power || '').split(':'); d.held = hs ? hs.split('') : []; d.sel = +si || 0; d.power = d.held[d.sel] || ''; } d.fx = {}; for (const [, k, n] of (fx || '').matchAll(/([a-z])(\d*)/g)) d.fx[k] = n ? +n : 1;
     if (d === me){ if (!d.seen){ d.x = x; d.y = y; d.dir = dir; d.seen = true; } continue; }
     d.tx = x; d.ty = y; d.tdir = dir; d.moving = !!moving;
     if (!d.seen){ d.x = x; d.y = y; d.dir = dir; d.seen = true; }
@@ -1614,7 +1659,7 @@ function applyEvent(e){
   if (k === 'power'){
     const [, id, pk, src] = e, d = diggers.get(id), P = POWERS[pk]; if (!d || !P) return;
     if (id === myId){
-      const from = src === 'box' ? 'Mystery box: ' : src === 'crate' ? 'Crate: ' : 'Bought ';
+      const from = src === 'box' ? 'Mystery box: ' : src === 'crate' ? 'Crate: ' : src === 'loadout' ? 'Started with ' : 'Bought ';
       floatAt(me.x, me.y - 46, from + P.name + (pk === 'p' ? ' (on)' : '!'), POW_COL[pk]);
       [784, 988, 1175, 1568].forEach((f, i) => setTimeout(() => beep(f, .14, 'triangle', .08), i*70));
     } else if (src !== 'shop' && near(d.x, d.y) > .25) floatAt(d.x, d.y - 40, `${d.name}: ${P.name}`, POW_COL[pk], {small: true});
@@ -1963,6 +2008,7 @@ for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) digBtn.ad
 bonkBtn.addEventListener('pointerdown', e => { e.preventDefault(); playerBonk(); });
 const powBtn = $('powBtn');
 powBtn.addEventListener('pointerdown', e => { e.preventDefault(); usePower(); });
+$('powSlots').addEventListener('pointerdown', e => { const b = e.target.closest('[data-sel]'); if (!b) return; e.preventDefault(); send({t: 'sel', i: +b.dataset.sel}); beep(700, .05, 'triangle', .06); });
 function usePower(){ if (!inGame || !me || !me.power || me.stun) return; press(powBtn); sendPos(true); send({t: 'use'}); }
 for (const pk of ['p', 's', 'd']) $('buy-' + pk).addEventListener('click', () => { if (inGame) send({t: 'buy', k: pk}); });
 
@@ -2151,6 +2197,9 @@ function update(dt){
   // powerup button, active effects, shop
   const P = POWERS[me.power];
   powBtn.hidden = !P;
+  const slots = profile ? profile.slots || 1 : 1, hp = me.held || [], key = hp.join('') + me.sel + slots;
+  if ($('powSlots').dataset.k !== key){ $('powSlots').dataset.k = key; $('powSlots').hidden = slots < 2 || !hp.length;
+    $('powSlots').innerHTML = Array.from({length: slots}, (_, i) => i === me.sel && hp[i] ? '' : hp[i] ? `<button data-sel="${i}" style="border-color:${POW_COL[hp[i]]}">${POWERS[hp[i]] ? POWERS[hp[i]].short : ''}</button>` : '<button class="empty" disabled>EMPTY</button>').join(''); }
   if (P && powBtn.dataset.k !== me.power){ powBtn.dataset.k = me.power; powBtn.innerHTML = `${P.short}<small>TAP TO USE</small>`; powBtn.style.background = ''; }
   const FX_LABEL = {z: 'Tired arm', x: 'Stinky! Detector scrambled'};
   const evChip = curEv ? `<span style="--c:#ffd447">${curEv.kind === 'fog' && MAP === 'mountain' ? 'Blizzard' : curEv.kind === 'fog' && MAP === 'haunted' ? 'Mist' : EV_NAME[curEv.kind]} ${Math.max(0, Math.ceil(curEv.dur - (t - curEv.start)))}s</span>` : '';
@@ -2185,7 +2234,7 @@ const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>'
 const displayFont = '"Bowlby One SC", Impact, sans-serif';
 function drawMuseum(){
   if (MAP === 'park' || MAP === 'mountain') return drawLodge();
-  const {x, y, w, h} = MUSEUM, l = x - w/2, tp = y - h/2, beach = MAP === 'beach', spooky = MAP === 'haunted';
+  const {x, y, w, h} = MUSEUM, l = x - w/2, tp = y - h/2, beach = MAP === 'beach', spooky = MAP === 'haunted' || THEME === 'halloween';
   ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.fillRect(l+10, tp+12, w, h + 6);
   for (let i = 0; i < 3; i++){ ctx.fillStyle = ['#cfc4a8', '#ddd3b8', '#ebe3cc'][i]; ctx.fillRect(x - 46 + i*6, y + h/2 - 2 + (2 - i)*5, 92 - i*12, 6); } // steps
   ctx.fillStyle = spooky ? '#6a6672' : beach ? '#f3f1ea' : '#e9dfc6'; ctx.fillRect(l, tp, w, h);
@@ -2222,28 +2271,29 @@ function drawLodge(){
   const {x, y, w, h} = MUSEUM, l = x - w/2, tp = y - h/2, park = MAP === 'park';
   ctx.fillStyle = 'rgba(0,0,0,.18)'; ctx.fillRect(l+8, tp+10, w, h);
   if (park){
-    ctx.fillStyle = '#efe8d4'; ctx.fillRect(l, tp, w, h);
-    ctx.fillStyle = '#2f6b45'; ctx.beginPath(); ctx.moveTo(l - 14, tp + h*.62); ctx.lineTo(x, tp - 26); ctx.lineTo(l + w + 14, tp + h*.62); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = '#f4ecd4'; for (let i = 0; i < 8; i++){ ctx.beginPath(); ctx.moveTo(l - 14 + i*(w + 28)/8, tp + h*.62); ctx.lineTo(x, tp - 26); ctx.lineTo(l - 14 + (i + .5)*(w + 28)/8, tp + h*.62); ctx.closePath(); if (i % 2) ctx.fill(); }
-    ctx.fillStyle = '#c9a227'; ctx.beginPath(); ctx.arc(x, tp - 28, 6, 0, 7); ctx.fill();
-    for (let k = 0; k < 7; k++){ const lx = l - 14 + k*(w + 28)/6, ly = tp + h*.62 + 4; // bunting and lanterns along the eaves
+    ctx.fillStyle = '#efe8d4'; ctx.fillRect(l, tp, w, h); ctx.fillStyle = 'rgba(0,0,0,.12)'; ctx.fillRect(l, tp + 8, w, 6);
+    ctx.fillStyle = '#2f6b45'; ctx.beginPath(); ctx.moveTo(l - 14, tp + 8); ctx.lineTo(x, tp - 62); ctx.lineTo(l + w + 14, tp + 8); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#f4ecd4'; for (let i = 0; i < 8; i++){ ctx.beginPath(); ctx.moveTo(l - 14 + i*(w + 28)/8, tp + 8); ctx.lineTo(x, tp - 62); ctx.lineTo(l - 14 + (i + .5)*(w + 28)/8, tp + 8); ctx.closePath(); if (i % 2) ctx.fill(); }
+    ctx.fillStyle = '#c9a227'; ctx.beginPath(); ctx.arc(x, tp - 64, 6, 0, 7); ctx.fill();
+    for (let k = 0; k < 7; k++){ const lx = l - 14 + k*(w + 28)/6, ly = tp + 10; // bunting and lanterns along the eaves
       if (k){ ctx.strokeStyle = 'rgba(40,30,20,.5)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(lx - (w + 28)/6, ly); ctx.quadraticCurveTo(lx - (w + 28)/12, ly + 6, lx, ly); ctx.stroke();
         for (let f = 1; f < 4; f++){ const fx2 = lx - (w + 28)/6 + f*(w + 28)/24; ctx.fillStyle = ['#e84a5f', '#f2d13c', '#3fa7d6'][(k + f) % 3]; ctx.beginPath(); ctx.moveTo(fx2 - 3, ly + 3); ctx.lineTo(fx2 + 3, ly + 3); ctx.lineTo(fx2, ly + 8); ctx.fill(); } }
       ctx.fillStyle = `rgba(255,214,120,${.75 + Math.sin(t*3 + k)*.2})`; ctx.beginPath(); ctx.arc(lx, ly + 2, 3, 0, 7); ctx.fill(); }
     ctx.fillStyle = 'rgba(31,74,50,.85)'; ctx.fillRect(x - 74, tp + h*.3 - 30, 148, 56);
   } else {
-    ctx.fillStyle = '#8a5a35'; ctx.fillRect(l, tp, w, h);
+    ctx.fillStyle = '#8a5a35'; ctx.fillRect(l, tp, w, h); ctx.fillStyle = 'rgba(0,0,0,.18)'; ctx.fillRect(l, tp + 8, w, 6);
     ctx.strokeStyle = '#6b4226'; ctx.lineWidth = 2; for (let yy = tp + 8; yy < tp + h; yy += 10){ ctx.beginPath(); ctx.moveTo(l, yy); ctx.lineTo(l + w, yy); ctx.stroke(); }
-    ctx.fillStyle = '#5b3a22'; ctx.beginPath(); ctx.moveTo(l - 18, tp + h*.62); ctx.lineTo(x, tp - 30); ctx.lineTo(l + w + 18, tp + h*.62); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = '#f7fbff'; ctx.beginPath(); ctx.moveTo(l - 12, tp + h*.55); ctx.lineTo(x, tp - 24); ctx.lineTo(l + w + 12, tp + h*.55); ctx.lineTo(l + w - 10, tp + h*.5); ctx.lineTo(x, tp - 12); ctx.lineTo(l + 10, tp + h*.5); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#5b3a22'; ctx.beginPath(); ctx.moveTo(l - 18, tp + 8); ctx.lineTo(x, tp - 66); ctx.lineTo(l + w + 18, tp + 8); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#f7fbff'; ctx.beginPath(); ctx.moveTo(l - 12, tp + 2); ctx.lineTo(x, tp - 60); ctx.lineTo(l + w + 12, tp + 2); ctx.lineTo(l + w - 10, tp - 4); ctx.lineTo(x, tp - 48); ctx.lineTo(l + 10, tp - 4); ctx.closePath(); ctx.fill();
     for (const sx of [l + 26, l + w - 26]){ ctx.fillStyle = '#ffd98a'; ctx.fillRect(sx - 12, tp + h*.66, 24, 18); ctx.strokeStyle = '#5b3a22'; ctx.lineWidth = 2; ctx.strokeRect(sx - 12, tp + h*.66, 24, 18); }
-    ctx.fillStyle = '#6b6f78'; ctx.fillRect(l + w - 46, tp - 14, 14, 16); ctx.fillStyle = '#f7fbff'; ctx.fillRect(l + w - 47, tp - 17, 16, 4); // chimney and its smoke
-    for (let k = 0; k < 4; k++){ const ph = (t*.6 + k/4) % 1; ctx.fillStyle = `rgba(230,235,240,${.55*(1 - ph)})`; ctx.beginPath(); ctx.arc(l + w - 39 + Math.sin(ph*6 + k)*5 + ph*14, tp - 22 - ph*46, 5 + ph*9, 0, 7); ctx.fill(); }
+    ctx.fillStyle = '#6b6f78'; ctx.fillRect(l + w - 52, tp - 40, 14, 22); ctx.fillStyle = '#f7fbff'; ctx.fillRect(l + w - 53, tp - 43, 16, 4); // chimney and its smoke
+    for (let k = 0; k < 4; k++){ const ph = (t*.6 + k/4) % 1; ctx.fillStyle = `rgba(230,235,240,${.55*(1 - ph)})`; ctx.beginPath(); ctx.arc(l + w - 45 + Math.sin(ph*6 + k)*5 + ph*14, tp - 48 - ph*46, 5 + ph*9, 0, 7); ctx.fill(); }
     ctx.fillStyle = '#6b4a2c'; for (let k = 0; k < 4; k++) ctx.fillRect(l - 28, tp + h*.7 + k*7, 18, 6); ctx.fillStyle = '#a07a4a'; for (let k = 0; k < 4; k++){ ctx.beginPath(); ctx.arc(l - 28, tp + h*.7 + k*7 + 3, 3, 0, 7); ctx.fill(); } // log pile
     for (const sx of [l + 4, l + w - 4]){ ctx.fillStyle = '#9aa4ad'; ctx.fillRect(sx - 1, tp + h*.62, 2, 26); ctx.fillStyle = ['#d63031', '#2d5f9e'][sx > x ? 1 : 0]; ctx.fillRect(sx - 3, tp + h*.62 + 26, 6, 4); } // skis against the wall
     ctx.fillStyle = 'rgba(60,36,20,.85)'; ctx.fillRect(x - 74, tp + h*.3 - 30, 148, 56);
   }
   ctx.fillStyle = '#5a3f25'; ctx.fillRect(x-18, y + h/2 - 30, 36, 30);
+  if (THEME === 'halloween') for (const px of [x - 34, x + 34]) jackOLantern(ctx, px, y + h/2 - 4, 1);
   ctx.fillStyle = '#f4ecd4'; ctx.font = `400 20px ${displayFont}`;
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('MUSEUM', x, tp + h*.3 - 16);
   ctx.font = '800 11px Nunito, sans-serif'; ctx.fillText(park ? 'BANDSTAND · FINDS HERE' : 'SKI LODGE · FINDS HERE', x, tp + h*.3 + 14);
@@ -2788,7 +2838,7 @@ function drawBat(m){
 function drawMagpie(m){
   if (m.ghost) return drawGhost(m);
   if (m.dog) return drawDog(m);
-  if (MAP === 'haunted') return drawBat(m);
+  if (spooky()) return drawBat(m);
   if (MAP === 'beach') return drawGull(m);
   if (MAP === 'park') return drawPigeon(m);
   const crow = MAP === 'mountain';
@@ -3084,7 +3134,7 @@ function draw(){
     ctx.restore(); ctx.globalAlpha = 1;
   }
   ctx.restore();
-  if (inGame && MAP === 'haunted' && me){
+  if (inGame && spooky() && me){
     const c = night.c || (night.c = document.createElement('canvas')); if (c.width !== vw || c.height !== vh){ c.width = vw; c.height = vh; }
     const g = c.getContext('2d'); g.globalCompositeOperation = 'source-over'; g.clearRect(0, 0, vw, vh); g.fillStyle = 'rgba(10,6,28,.72)'; g.fillRect(0, 0, vw, vh);
     g.globalCompositeOperation = 'destination-out';
