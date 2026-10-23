@@ -133,7 +133,9 @@ canvas.stage{width:100%;height:auto;border-radius:12px;display:block;margin-bott
 .wgrid button span{flex:1;min-width:0}
 .wgrid button small{font:800 10px var(--body);letter-spacing:.06em;color:#8a4a1c;white-space:nowrap}
 .wgrid button small.own{color:#3f5a2a}
-.panel button.wardOpen{display:flex;justify-content:center;align-items:center;gap:4px;margin-top:10px}
+.panel button.wardOpen,.panel .row2 button.achOpen{display:flex;justify-content:center;align-items:center;gap:4px;margin-top:10px}
+.panel .row2 button.wardOpen,.panel .row2 button.achOpen,.panel .row2 button.loadOpen{font-size:14px;padding:10px 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.panel button.backBtn{margin-top:10px;font-size:14px;padding:10px;color:#8a4a1c;border-color:#8a4a1c}
 #wMsg:empty{display:none}
 .row2{display:flex;gap:8px}
 .panel .row2 button{flex:1;min-width:0;font-size:16px;padding:12px 8px}
@@ -281,6 +283,9 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
       <div class="seg"><button data-vib="1">On</button><button data-vib="0">Off</button></div></div>
       <label>Dig &amp; bonk buttons</label>
       <div class="seg" id="layoutSeg"></div>
+      <label>Detector</label>
+      <div class="seg"><button data-det="classic">Classic</button><button data-det="pinpoint">Pinpoint</button></div>
+      <p class="note" style="margin:-6px 0 12px;font-size:12px">Pinpoint shows a circle that closes in on the find as you get nearer, and you can hold DIG instead of tapping.</p>
       <label>Scoreboard</label>
       <div class="seg"><button data-board="full">Full</button><button data-board="mini">Just me</button></div>
       <button class="ghost achOpen" style="margin-bottom:8px">Achievements</button>
@@ -316,6 +321,7 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
       <div class="row2"><button class="ghost wardOpen">Wardrobe</button><button class="ghost loadOpen">Start with: <span class="loadN">none</span></button></div>
       <button id="startBtn">Start round</button>
       <p class="note" id="waitNote" hidden>Waiting for the host to start&hellip;</p>
+      <button class="ghost backBtn">Back to menu</button>
     </div>
   </div>
 
@@ -331,6 +337,7 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
       <button id="againBtn">Play again</button>
       <p class="note" id="againNote" hidden>Waiting for the host to start the next round&hellip;</p>
       <div class="row2"><button class="ghost wardOpen">Wardrobe</button><button class="ghost loadOpen">Start with: <span class="loadN">none</span></button></div>
+      <button class="ghost backBtn">Back to menu</button>
     </div>
   </div>
 
@@ -477,7 +484,7 @@ function startEvent(kind, dur, data, elapsed){
 let CIRCLE = null, OBST = [], ICE = null, SLIPPERY = false, keeper = null, skiers = [], snowT = 0;
 let MAP = 'field', TIDE = null, WRECK = null, TOP = 70, sea = Infinity, seaT = Infinity, seaDir = 0, lobbyMap = 'field';
 let rings = [], floats = [], pops = [], dirt = [];
-let t = 0, timeLeft = 180, pulsePhase = 0, signal = 0, target = null, muted = false, me = null, lastSend = 0, sentX = 0, sentY = 0, sentDir = 0;
+let pin = null, t = 0, timeLeft = 180, pulsePhase = 0, signal = 0, target = null, muted = false, me = null, lastSend = 0, sentX = 0, sentY = 0, sentDir = 0;
 
 const dist = (a, b) => Math.hypot(a.x-b.x, a.y-b.y);
 const bagValue = d => d.bag.reduce((a, ti) => a + TYPES[ti].v, 0);
@@ -1493,7 +1500,7 @@ const SHORT = ['Right', 'Right, higher', 'Left', 'Left, higher', 'Dig right, bon
 const pref = (k, d) => { try { const v = localStorage.getItem(k); return v === null ? d : v; } catch (_) { return d; } };
 const setPref = (k, v) => { try { localStorage.setItem(k, v); } catch (_) {} };
 muted = pref('fk-mute', '0') === '1'; volume = +pref('fk-vol', '80')/100;
-let vibOn = pref('fk-vib', '1') === '1', boardMini = pref('fk-board', 'full') === 'mini';
+let detMode = pref('fk-det', 'pinpoint'), vibOn = pref('fk-vib', '1') === '1', boardMini = pref('fk-board', 'full') === 'mini';
 const buzz = p => { if (vibOn && navigator.vibrate) try { navigator.vibrate(p); } catch (_) {} };
 $('layoutSeg').innerHTML = SHORT.map((n, i) => `<button data-lay="${i}">${n}</button>`).join('');
 function renderSettings(){
@@ -1501,6 +1508,7 @@ function renderSettings(){
   document.querySelectorAll('[data-vib]').forEach(b => b.classList.toggle('on', (b.dataset.vib === '1') === vibOn));
   document.querySelectorAll('[data-lay]').forEach(b => b.classList.toggle('on', +b.dataset.lay === layout));
   document.querySelectorAll('[data-board]').forEach(b => b.classList.toggle('on', (b.dataset.board === 'mini') === boardMini));
+  document.querySelectorAll('[data-det]').forEach(b => b.classList.toggle('on', b.dataset.det === detMode));
   $('volIn').value = Math.round(volume*100); $('vibWrap').hidden = !navigator.vibrate;
   $('setGame').hidden = !roomCode || !ws; $('setLeave').hidden = !ws; $('setCode').textContent = roomCode || '----';
 }
@@ -1510,6 +1518,7 @@ $('setDone').addEventListener('click', () => { $('settings').hidden = true; });
 $('settings').addEventListener('click', e => { if (e.target === $('settings')) $('settings').hidden = true; }); // tap outside to close
 document.querySelectorAll('[data-snd]').forEach(b => b.addEventListener('click', () => { muted = b.dataset.snd === '0'; setPref('fk-mute', muted ? '1' : '0'); renderSettings(); if (!muted) beep(660, .12, 'triangle', .08); }));
 document.querySelectorAll('[data-vib]').forEach(b => b.addEventListener('click', () => { vibOn = b.dataset.vib === '1'; setPref('fk-vib', vibOn ? '1' : '0'); renderSettings(); buzz(40); }));
+document.querySelectorAll('[data-det]').forEach(b => b.addEventListener('click', () => { detMode = b.dataset.det; setPref('fk-det', detMode); renderSettings(); }));
 document.querySelectorAll('[data-board]').forEach(b => b.addEventListener('click', () => { boardMini = b.dataset.board === 'mini'; setPref('fk-board', boardMini ? 'mini' : 'full'); renderSettings(); update.boardT = 0; }));
 $('volIn').addEventListener('input', () => { volume = $('volIn').value/100; setPref('fk-vol', $('volIn').value); if (masterGain) masterGain.gain.value = volume; });
 $('volIn').addEventListener('change', () => beep(660, .12, 'triangle', .1));
@@ -1519,14 +1528,22 @@ $('setShare').addEventListener('click', async () => {
   const url = `${location.origin}${location.pathname}?room=${roomCode}`;
   try { await navigator.clipboard.writeText(url); $('setShareNote').textContent = 'Invite link copied.'; } catch (_) { $('setShareNote').textContent = url; }
 });
-$('setLeave').addEventListener('click', () => {
-  if (!confirm(inGame ? 'Leave this game? Anything in your bag is lost.' : 'Leave this game?')) return;
+function leaveGame(){
   $('settings').hidden = true; $('homeErr').textContent = ''; $('homeErr').dataset.keep = '1';
   roomCode = null; history.replaceState(null, '', location.pathname); $('codeIn').value = ''; $('joinBtn').textContent = 'Join game';
-  if (ws) ws.close();
-});
+  if (ws) ws.close(); else show('home');
+}
+$('setLeave').addEventListener('click', () => { if (confirm(inGame ? 'Leave this game? Anything in your bag is lost.' : 'Leave this game?')) leaveGame(); });
+document.querySelectorAll('.backBtn').forEach(b => b.addEventListener('click', leaveGame));
 const press = el => { el.classList.remove('hit'); void el.offsetWidth; el.classList.add('hit'); };
-digBtn.addEventListener('pointerdown', e => { e.preventDefault(); playerDig(); });
+let digHold = null;
+const stopHold = () => { if (digHold){ clearInterval(digHold); digHold = null; } };
+digBtn.addEventListener('pointerdown', e => {
+  e.preventDefault(); playerDig();
+  if (detMode === 'pinpoint' && !digHold){ try { digBtn.setPointerCapture(e.pointerId); } catch (_) {}
+    digHold = setInterval(() => { if (!inGame || !target || carrying()) return; playerDig(); }, 110); }
+});
+for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) digBtn.addEventListener(ev, stopHold);
 bonkBtn.addEventListener('pointerdown', e => { e.preventDefault(); playerBonk(); });
 const powBtn = $('powBtn');
 powBtn.addEventListener('pointerdown', e => { e.preventDefault(); usePower(); });
@@ -1690,6 +1707,7 @@ function update(dt){
       beep(strong ? T.base + signal*300 : 380 + signal*300, .07, strong ? T.tone : 'sine', .05 + signal*.05);
     }
   } else pulsePhase = .8;
+  pin = signal > .3 && nearB && !me.fx.x ? nearB : null;
   target = me.stun ? null : findTarget(me);
   digBtn.classList.toggle('ready', !!target);
   const held = carrying(), lh = held ? null : liftable(), lbl = held ? 'DROP' : lh ? 'LIFT' : 'DIG';
@@ -2248,6 +2266,21 @@ function draw(){
   for (const b of buried.values()) if (b.prog > 0){
     const k = b.prog / TYPES[b.ti].taps;
     ctx.fillStyle = snowy ? '#8796a3' : '#5a4128'; ctx.beginPath(); ctx.ellipse(b.x, b.y, 6 + k*10, 5 + k*8, 0, 0, 7); ctx.fill();
+  }
+  if (detMode === 'pinpoint' && inGame && me){
+    // a circle that closes in on the find: big and roughly placed when the beeps start, exact once you can dig
+    const P = target || pin;
+    if (P){
+      const T = TYPES[P.ti], D = Math.hypot(P.x - me.x, P.y - me.y), exact = !!target, k = exact ? 0 : Math.min(1, Math.max(0, (D - 40)/170));
+      const ja = P.id*2.399, cx0 = P.x + Math.cos(ja)*k*45, cy0 = P.y + Math.sin(ja)*k*45, r = exact ? 15 + Math.sin(t*8)*2 : 18 + k*75;
+      ctx.globalAlpha = exact ? 1 : .55 + signal*.45;
+      ctx.fillStyle = T.ring + (exact ? '55' : '30'); ctx.beginPath(); ctx.arc(cx0, cy0, r, 0, 7); ctx.fill();
+      ctx.strokeStyle = exact ? '#ffffff' : T.ring; ctx.lineWidth = 3; if (!exact) ctx.setLineDash([8, 6]);
+      ctx.beginPath(); ctx.arc(cx0, cy0, r, 0, 7); ctx.stroke(); ctx.setLineDash([]);
+      if (exact){ const by = P.y - 30 - Math.abs(Math.sin(t*5))*6; ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.moveTo(P.x - 7, by); ctx.lineTo(P.x + 7, by); ctx.lineTo(P.x, by + 9); ctx.fill();
+        ctx.font = '800 11px Nunito, sans-serif'; ctx.textAlign = 'center'; ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(20,26,12,.85)'; ctx.strokeText('DIG HERE', P.x, by - 8); ctx.fillText('DIG HERE', P.x, by - 8); }
+      ctx.globalAlpha = 1;
+    }
   }
   if (target && inGame){
     const k = target.prog / TYPES[target.ti].taps;
