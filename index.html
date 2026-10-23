@@ -1713,7 +1713,7 @@ const SHORT = ['Right', 'Right, higher', 'Left', 'Left, higher', 'Dig right, bon
 const pref = (k, d) => { try { const v = localStorage.getItem(k); return v === null ? d : v; } catch (_) { return d; } };
 const setPref = (k, v) => { try { localStorage.setItem(k, v); } catch (_) {} };
 muted = pref('fk-mute', '0') === '1'; volume = +pref('fk-vol', '80')/100;
-let detMode = pref('fk-det', 'classic'), vibOn = pref('fk-vib', '1') === '1', boardMini = pref('fk-board', 'full') === 'mini';
+let detMode = pref('fk-det2', 'zone'), vibOn = pref('fk-vib', '1') === '1', boardMini = pref('fk-board', 'full') === 'mini';
 const buzz = p => { if (vibOn && navigator.vibrate) try { navigator.vibrate(p); } catch (_) {} };
 $('layoutSeg').innerHTML = SHORT.map((n, i) => `<button data-lay="${i}">${n}</button>`).join('');
 function renderSettings(){
@@ -1731,7 +1731,7 @@ $('setDone').addEventListener('click', () => { $('settings').hidden = true; });
 $('settings').addEventListener('click', e => { if (e.target === $('settings')) $('settings').hidden = true; }); // tap outside to close
 document.querySelectorAll('[data-snd]').forEach(b => b.addEventListener('click', () => { muted = b.dataset.snd === '0'; setPref('fk-mute', muted ? '1' : '0'); renderSettings(); if (!muted) beep(660, .12, 'triangle', .08); }));
 document.querySelectorAll('[data-vib]').forEach(b => b.addEventListener('click', () => { vibOn = b.dataset.vib === '1'; setPref('fk-vib', vibOn ? '1' : '0'); renderSettings(); buzz(40); }));
-document.querySelectorAll('[data-det]').forEach(b => b.addEventListener('click', () => { detMode = b.dataset.det; setPref('fk-det', detMode); renderSettings(); }));
+document.querySelectorAll('[data-det]').forEach(b => b.addEventListener('click', () => { detMode = b.dataset.det; setPref('fk-det2', detMode); renderSettings(); }));
 document.querySelectorAll('[data-board]').forEach(b => b.addEventListener('click', () => { boardMini = b.dataset.board === 'mini'; setPref('fk-board', boardMini ? 'mini' : 'full'); renderSettings(); update.boardT = 0; }));
 $('volIn').addEventListener('input', () => { volume = $('volIn').value/100; setPref('fk-vol', $('volIn').value); if (masterGain) masterGain.gain.value = volume; });
 $('volIn').addEventListener('change', () => beep(660, .12, 'triangle', .1));
