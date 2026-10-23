@@ -154,8 +154,33 @@ const POWERS = {
   k: { name: 'Stink bomb',   short: 'STINK',   dur: 8,  desc: "Scrambles everyone's detector around you" },
   g: { name: 'Sticky glove', short: 'GLOVE',   dur: 30, desc: 'Your next bonk steals the find straight into your bag' },
   q: { name: 'Big bonk',     short: 'BIG BONK',dur: 0,  desc: 'Shockwave: everyone around you drops their best find' },
+  // zombie modes only
+  h: { name: 'Cricket bat',  short: 'BAT',     dur: 25, desc: 'Your bonks hit zombies twice as hard' },
 };
-const BOX_POWERS = ['c', 't', 'w', 'm', 'l', 'r'], ALL_POWERS = Object.keys(POWERS);
+// ---------- co-op zombie modes ----------
+const COOP = {
+  survive: { name: 'Survive', waves: 5 },             // hold out through five waves
+  endless: { name: 'Endless', waves: Infinity },      // waves until everyone's down; beat your best
+  escape:  { name: 'Escape', time: 240, parts: 4 },   // carry engine parts to the bus before time runs out
+};
+const COOP_TEAM = 4, MAX_HP = 100, REVIVE_TIME = 2.5;
+const ZOMBIE = { // hp in bonks, speed, damage per hit, size
+  walker: { hp: 2, speed: 62, dmg: 12, r: 15, code: 0 },
+  runner: { hp: 1, speed: 128, dmg: 8, r: 13, code: 1 },
+  brute:  { hp: 7, speed: 46, dmg: 25, r: 22, code: 2 },
+};
+const COOP_NAMES = {
+  0: ['Tin of beans', 'Bottle of water', 'Chocolate bar', 'Packet of crisps', 'Energy drink'],
+  1: ['Bandages', 'Plasters', 'Painkillers', 'Sling'],
+  2: ['Medkit', 'First aid kit', 'Field medic bag'],
+  3: ['Supply drop', 'Army crate', 'Survival kit'],
+  4: ['Mystery box'],
+  5: ['Engine part', 'Car battery', 'Fuel can', 'Spare wheel', 'Fan belt', 'Spark plugs'],
+};
+const COOP_HEAL = { 0: 10, 1: 30, 2: 60 };
+const COOP_POWERS = ['q', 'k', 'w', 'h', 'h', 'q'];
+const coopType = () => { const r = Math.random(); return r < .4 ? 0 : r < .68 ? 1 : r < .8 ? 2 : r < .92 ? 3 : BOX; };
+const BOX_POWERS = ['c', 't', 'w', 'm', 'l', 'r'], ALL_POWERS = Object.keys(POWERS).filter(k => k !== 'h');
 // Loadout: one powerup to start the round with, bought with coins on the player's phone
 const MAGNET_R = 170, STINK_R = 150, SHOCK_R = 85, TRAP_LIFE = 60;
 const BOX_CHANCE = 1 / 12, CRATE_FIRST = 20, CRATE_EVERY = 30;
@@ -198,6 +223,7 @@ class Room {
     this.public = !!opts.public;     // Quick Play: anyone can drop in, rounds start on their own
     this.tutorial = !!opts.tutorial; // one player, a practice dummy, no surprises
     this.autoT = null;
+    this.mode = 'classic'; // or a co-op zombie mode: 'survive', 'endless', 'escape'
     this.theme = ''; // 'halloween': any map at night, with pumpkins, bats, ghosts and spooky finds
     this.clients = new Map(); // ws -> {id, name, col}
     this.state = 'lobby';
@@ -217,7 +243,7 @@ class Room {
   send(ws, obj) { if (ws.readyState === 1) ws.send(JSON.stringify(obj)); }
   broadcast(obj) { const s = JSON.stringify(obj); for (const ws of this.clients.keys()) if (ws.readyState === 1) ws.send(s); }
   lobbyMsg() {
-    this.broadcast({ t: 'lobby', code: this.code, host: this.host, state: this.state, map: this.mapId, theme: this.theme, public: this.public ? 1 : 0, auto: this.autoT != null ? Math.ceil(this.autoT) : null,
+    this.broadcast({ t: 'lobby', code: this.code, host: this.host, state: this.state, map: this.mapId, theme: this.theme, mode: this.mode, public: this.public ? 1 : 0, auto: this.autoT != null ? Math.ceil(this.autoT) : null,
       players: [...this.clients.values()].map(c => ({ id: c.id, name: c.name, col: c.col, lvl: c.lvl, guest: !c.acct })) });
   }
   addClient(ws, name, rawLook, acct) {
@@ -229,7 +255,7 @@ class Room {
     if (this.host === null) this.host = c.id;
     this.send(ws, { t: 'hello', you: c.id });
     if (this.state === 'play') {
-      const d = this.makeDigger(c.id, c.name, c.col, false, Math.random() * 6, c.look, c.lvl); d.slots = acct ? accounts.slots(acct) : 1;
+      const d = this.makeDigger(c.id, c.name, c.col, false, Math.random() * 6, c.look, c.lvl); d.slots = acct ? accounts.slots(acct) : 1; if (this.isCoop()) { d.hp = MAX_HP; d.down = false; d.revive = 0; }
       this.diggers.push(d);
       this.ev.push(['join', { id: d.id, name: d.name, col: d.col, bot: 0, look: d.look, lvl: d.lvl }]);
       this.send(ws, this.initMsg(c.id));
@@ -292,7 +318,7 @@ class Room {
       if (got.length) this.send(ws, { t: 'profile', profile: accounts.profile(c.acct), ach: got.map(x => x.id) });
       this.stat(c.id, 'maps', this.mapId, 'set');
     }
-    const bots = this.tutorial ? 0 : Math.max(0, MIN_DIGGERS - humans.length);
+    const bots = this.tutorial ? 0 : Math.max(0, (this.isCoop() ? COOP_TEAM : MIN_DIGGERS) - humans.length);
     for (let i = 0; i < bots; i++) { const [n, col] = BOTS[i]; this.diggers.push(this.makeDigger(1000 + i, n, col, true, humans.length + i)); }
     if (this.tutorial){ // a practice dummy who stands still holding a find, a little way from the Museum
       const d = this.makeDigger(1000, 'Practice Pete', '#8a6d3b', true, 0, { hat: 'cap', jacket: 'auto', boots: 'green', pack: 'canvas', pet: 'none', trail: 'none', det: 'retro', spade: 'old', win: 'confetti' }, 1);
@@ -303,7 +329,8 @@ class Room {
       for (const [dx, dy, ti] of [[-120, 230, 1], [60, 300, 0], [180, 220, 1], [-60, 380, 2]]){ const b = { id: this.uid++, x: this.M.x + dx, y: this.M.y + dy, ti, name: this.itemName(ti), prog: 0 }; this.fit(b); this.buried.push(b); }
       for (let i = 0; i < 25; i++) this.spawnItem(false);
       this.evPlan = []; this.timeLeft = 600; this.crateT = 1e9; this.magpieT = 1e9;
-    } else {
+    } else if (this.isCoop()) this.coopStart();
+    else {
     for (let i = 0; i < ITEMS; i++) this.spawnItem(false);
     for (let i = 0; i < HEAVIES; i++) this.spawnItem(false, HEAVY);
     }
@@ -320,7 +347,7 @@ class Room {
     this.lobbyMsg();
   }
   initMsg(you) {
-    return { t: 'init', you, theme: this.spooky() && this.mapId !== 'haunted' ? 'halloween' : '', types: TYPES, powers: POWERS, world: WORLD, museum: this.M, map: this.mapId, circle: this.map.circle || null, obstacles: this.map.obstacles || [], ice: this.map.ice || null, slippery: !!this.map.slippery, tide: this.map.tide || null, wreck: this.map.wreck || null, top: this.map.top, sea: Math.round(this.sea), round: ROUND, dusk: DUSK, tl: this.timeLeft, event: this.event ? { kind: this.event.kind, left: this.event.dur - this.event.t, dur: this.event.dur, data: this.event.data } : null,
+    return { t: 'init', you, mode: this.mode, coop: this.coopInfo(), theme: this.spooky() && this.mapId !== 'haunted' ? 'halloween' : '', types: TYPES, powers: POWERS, world: WORLD, museum: this.M, map: this.mapId, circle: this.map.circle || null, obstacles: this.map.obstacles || [], ice: this.map.ice || null, slippery: !!this.map.slippery, tide: this.map.tide || null, wreck: this.map.wreck || null, top: this.map.top, sea: Math.round(this.sea), round: ROUND, dusk: DUSK, tl: this.timeLeft, event: this.event ? { kind: this.event.kind, left: this.event.dur - this.event.t, dur: this.event.dur, data: this.event.data } : null,
       diggers: this.diggers.map(d => ({ id: d.id, name: d.name, col: d.col, bot: d.isBot ? 1 : 0, look: d.look, lvl: d.lvl, npc: d.npc ? 1 : 0 })),
       traps: (this.traps || []).map(tr => [tr.id, Math.round(tr.x), Math.round(tr.y), tr.owner]),
       buried: this.buried.map(b => [b.id, Math.round(b.x), Math.round(b.y), b.ti, b.prog, b.name, b.owner || 0]),
@@ -332,12 +359,14 @@ class Room {
     this.state = 'end'; this.autoT = null;
     if (this.choice) this.mapId = this.choice; // back to what the host picked (the graveyard is Farmer's Field at Halloween)
     const ranked = this.diggers.filter(d => !d.npc).sort((a, b) => b.banked - a.banked);
-    this.broadcast({ t: 'end', rank: ranked.map(d => [d.id, d.name, d.col, d.banked, d.isBot ? 1 : 0]) });
+    const coop = this.isCoop() ? this.coopResult || { mode: this.mode, won: false, wave: this.wave, kills: this.kills, parts: this.parts } : null; this.coopResult = null;
+    this.broadcast({ t: 'end', rank: ranked.map(d => [d.id, d.name, d.col, d.banked, d.isBot ? 1 : 0]), coop });
+    if (coop) this.zombies = [];
     // coins and XP go onto each signed-in player's account
     for (const [ws, c] of this.clients) {
       if (!c.acct) continue;
       const place = ranked.findIndex(d => d.id === c.id); if (place < 0) continue;
-      accounts.reward(c.acct, ranked[place].banked, place).then(r => {
+      accounts.reward(c.acct, ranked[place].banked, coop ? (coop.won ? 0 : 3) : place).then(r => {
         c.lvl = accounts.level(c.acct);
         this.send(ws, { t: 'reward', ...r, profile: accounts.profile(c.acct) });
         this.lobbyMsg();
@@ -349,7 +378,8 @@ class Room {
   // ----- world -----
   humanNear(x, y, r) { return this.diggers.some(d => !d.isBot && Math.hypot(d.x - x, d.y - y) < r); }
   inHole(x, y, pad) { return this.holes.some(h => Math.hypot(h.x - x, h.y - y) < h.r + pad); }
-  names() { return this.theme === 'halloween' && seasonOn('halloween') ? HAUNTED_NAMES : MAP_NAMES[this.mapId] || {}; }
+  isCoop() { return !!COOP[this.mode]; }
+  names() { if (this.isCoop()) return COOP_NAMES; return this.theme === 'halloween' && seasonOn('halloween') ? HAUNTED_NAMES : MAP_NAMES[this.mapId] || {}; }
   spooky() { return this.mapId === 'haunted' || (this.theme === 'halloween' && seasonOn('halloween')); }
   itemName(ti, wreck) {
     const pool = wreck ? WRECK_NAMES[ti] : this.names()[ti];
@@ -365,7 +395,7 @@ class Room {
       if (awayFromPlayers && this.humanNear(x, y, 400)) continue;
       if (this.buried.some(b => Math.hypot(b.x - x, b.y - y) < 60)) continue;
       if (this.inHole(x, y, 40)) continue;
-      let ti = forceTi != null ? forceTi : Math.random() < BOX_CHANCE ? BOX : pickTypeIdx();
+      let ti = forceTi != null ? forceTi : this.isCoop() ? coopType() : Math.random() < BOX_CHANCE ? BOX : pickTypeIdx();
       if (forceTi == null && ti < 3 && this.event && this.event.kind === 'goldrush') ti++;
       let name = this.itemName(ti);
       if (ti === HEAVY) { const used = new Set([...this.buried, ...this.heavies].map(o => o.name)); name = pick((this.names()[HEAVY] || TYPES[HEAVY].names).filter(n => !used.has(n))) || name; }
@@ -437,11 +467,12 @@ class Room {
       return; // decoys aren't replaced
     }
     if (item.ti === HEAVY) {
-      const h = { id: this.uid++, x: item.x, y: item.y, name: item.name, carriers: [], hp: HEAVY_HP, wait: HEAVY_WAIT };
+      const h = { id: this.uid++, x: item.x, y: item.y, name: item.name, carriers: [], hp: HEAVY_HP, wait: this.heavyWait() };
       this.heavies.push(h);
       this.ev.push(['heavy', h.id, Math.round(h.x), Math.round(h.y), h.name, d.id]);
       return; // a new heavy find is buried once this one is banked
     }
+    if (this.isCoop()) { this.coopSupply(d, item); this.spawnItem(true); return; }
     if (item.ti === BOX) this.givePower(d, pick(BOX_POWERS), 'box');
     else if (d.lucky > 0 && item.ti < 3) {
       d.lucky--;
@@ -702,7 +733,7 @@ class Room {
           this.spawnItem(true, HEAVY);
           continue;
         }
-      } else h.wait = HEAVY_WAIT;
+      } else h.wait = this.heavyWait();
       if (h.carriers.length === 2) {
         const [a, b] = h.carriers, k = Math.min(1, dt * 10);
         h.x += ((a.x + b.x) / 2 - h.x) * k; h.y += ((a.y + b.y) / 2 - h.y) * k;
@@ -712,12 +743,15 @@ class Room {
         for (const c of h.carriers) { c.banked += share; c.carry = null; }
         this.ev.push(['hbank', h.id, h.carriers.map(c => c.id).join(','), share, h.name]);
         this.heavies.splice(this.heavies.indexOf(h), 1);
+        if (this.mode === 'escape') { this.coopPart(); continue; }
         this.spawnItem(true, HEAVY);
       }
     }
   }
 
+  heavyWait() { return this.mode === 'escape' ? 30 : HEAVY_WAIT; }
   heavyInReach(a) {
+    if (this.isCoop()) return null; // nobody smashes the engine parts
     for (const h of this.heavies) if (!h.carriers.includes(a) && dist(a, h) < 52) return h;
     return null;
   }
@@ -795,12 +829,14 @@ class Room {
   }
   stinkBomb(d) {
     const hit = [];
+    for (const z of this.zombies || []) if (dist(z, d) < STINK_R + 60) z.scared = 6; // zombies can't stand it
     for (const o of this.diggers) if (o !== d && dist(o, d) < STINK_R && !this.inMuseum(o.x, o.y, 10)) { o.fx.x = POWERS.k.dur; hit.push(o.id); }
     this.ev.push(['stink', d.id, Math.round(d.x), Math.round(d.y), hit.join(',')]);
   }
   bigBonk(d) {
     const hit = [];
     for (const o of [...this.diggers]) {
+      if (this.isCoop()) break;
       if (o === d || dist(o, d) > SHOCK_R || this.inMuseum(o.x, o.y, 10)) continue;
       if (o.carry) { const h = o.carry; this.hitHeavy(h, d); if (this.heavies.includes(h)) this.hitHeavy(h, d); hit.push(o.id); continue; }
       if (o.immune > 0) continue;
@@ -813,6 +849,7 @@ class Room {
       hit.push(o.id);
     }
     for (const m of this.magpies) if (m.stun <= 0 && m.alt < 40 && dist(m, d) < SHOCK_R) this.hitMagpie(m, d);
+    for (const z of [...(this.zombies || [])]) if (dist(z, d) < SHOCK_R + 20) this.hitZombie(z, d, 3, true);
     this.ev.push(['shock', d.id, Math.round(d.x), Math.round(d.y), hit.join(',')]);
   }
   buy(d, k) {
@@ -867,6 +904,12 @@ class Room {
   bonk(a) {
     if (a.bonkCd > 0 || a.stun > 0 || a.carry || a.tired > 0) return false;
     a.bonkCd = 0.6; a.swing = 0.25;
+    if (this.isCoop()) { // co-op: bonks are for zombies only
+      if (a.down) return false;
+      const z = this.zombieInReach(a);
+      if (z) { this.hitZombie(z, a, a.fx.h > 0 ? 2 : 1); return true; }
+      this.ev.push(['whiff', a.id]); return false;
+    }
     const mg = this.magpieInReach(a);
     if (mg) { this.hitMagpie(mg, a); return true; }
     const v = this.bonkVictim(a);
@@ -1145,8 +1188,8 @@ class Room {
     }
     if (this.state !== 'play') return;
     this.t += dt; this.timeLeft -= dt;
-    if (this.timeLeft <= 0) { this.timeLeft = 0; this.flush(); this.end(); return; }
-    this.updateMagpies(dt);
+    if (this.timeLeft <= 0) { this.timeLeft = 0; this.flush(); if (this.isCoop()) this.coopEnd(this.mode !== 'escape'); else this.end(); return; }
+    if (this.isCoop()) { this.coopTick(dt); if (this.state !== 'play') return; } else this.updateMagpies(dt);
     this.updateTide(dt);
     this.updateEvent(dt);
     if ((this.crateT -= dt) <= 0) { this.crateT = CRATE_EVERY; if (!this.crates.length) this.spawnCrate(); }
@@ -1159,7 +1202,7 @@ class Room {
       // where everyone was over the last moment, so a bonk can be judged against what the bonker saw
       (d.hist || (d.hist = [])).push([this.t, d.x, d.y]); while (d.hist.length && d.hist[0][0] < this.t - BONK_REWIND) d.hist.shift();
       if (d.dummy){ if (!d.bag.length && (d.rearm = (d.rearm || 4) - dt) <= 0){ d.rearm = 0; d.bag.push({ ti: 1, name: 'Brass button' }); } }
-      else if (d.isBot) this.botThink(d, dt);
+      else if (d.isBot) { if (this.isCoop()) this.coopBot(d, dt); else this.botThink(d, dt); }
       if (d.bag.length && this.inMuseum(d.x, d.y)) {
         const v = bagValue(d); d.banked += v; d.bag = [];
         this.ev.push(['bank', d.id, v]);
@@ -1167,7 +1210,7 @@ class Room {
       }
       if (d.stun <= 0) for (let i = this.crates.length - 1; i >= 0; i--) {
         const c = this.crates[i];
-        if (Math.hypot(c.x - d.x, c.y - d.y) < 28) { this.crates.splice(i, 1); this.ev.push(['crategot', c.id, d.id]); this.givePower(d, pick(ALL_POWERS), 'crate'); }
+        if (Math.hypot(c.x - d.x, c.y - d.y) < 28) { this.crates.splice(i, 1); this.ev.push(['crategot', c.id, d.id]); this.givePower(d, pick(this.isCoop() ? COOP_POWERS : ALL_POWERS), 'crate'); }
       }
       if (d.stun <= 0) for (let i = this.loose.length - 1; i >= 0; i--) {
         const l = this.loose[i];
@@ -1185,6 +1228,171 @@ class Room {
     this.updateHeavies(dt);
     this.flush();
   }
+  // ===================== co-op zombie modes =====================
+  coopStart() {
+    this.zombies = []; this.wave = 0; this.toSpawn = []; this.spawnT = 0; this.breakT = 8; this.kills = 0; this.parts = 0; this.zt = 0;
+    this.evPlan = []; this.magpieT = 1e9; this.crateT = 25;
+    this.timeLeft = this.mode === 'escape' ? COOP.escape.time : 99999;
+    for (const d of this.diggers) { d.hp = MAX_HP; d.down = false; d.revive = 0; }
+    for (let i = 0; i < 45; i++) this.spawnItem(false);
+    if (this.mode === 'escape') for (let i = 0; i < 3; i++) this.spawnItem(false, HEAVY);
+  }
+  coopInfo() {
+    if (!this.isCoop()) return null;
+    const left = (this.toSpawn ? this.toSpawn.length : 0) + (this.zombies ? this.zombies.length : 0);
+    return [this.wave || 0, left, this.breakT > 0 && !left ? Math.ceil(this.breakT) : 0, this.parts || 0, COOP.escape.parts, this.kills || 0];
+  }
+  team() { return this.diggers.filter(d => !d.npc); }
+  startWave() {
+    const n = ++this.wave, humans = this.team().filter(d => !d.isBot).length;
+    const count = 5 + n * 3 + humans * 2, q = [];
+    for (let i = 0; i < count; i++) q.push(n >= 2 && Math.random() < Math.min(.4, .12 * n) ? 'runner' : 'walker');
+    for (let i = 0; i < (n >= 3 ? 1 + Math.floor(n / 3) : 0); i++) q.splice(Math.floor(Math.random() * q.length), 0, 'brute');
+    this.toSpawn = q; this.spawnT = 0;
+    this.ev.push(['wave', n, count + (q.length - count)]);
+  }
+  spawnZombie(kind) {
+    const C = this.map.circle;
+    for (let tries = 0; tries < 30; tries++) {
+      let x, y; const side = Math.random() * 4 | 0, k = Math.random();
+      if (C) { const a = Math.random() * Math.PI * 2; x = C.x + Math.cos(a) * (C.r - 110); y = C.y + Math.sin(a) * (C.r - 110); }
+      else { x = side === 0 ? 70 : side === 1 ? WORLD - 70 : 70 + k * (WORLD - 140); y = side === 2 ? Math.max(this.map.top + 30, 70) : side === 3 ? Math.min(WORLD - 70, this.sea - 60) : Math.max(this.map.top + 30, 70) + k * (Math.min(WORLD - 70, this.sea - 60) - Math.max(this.map.top + 30, 70)); }
+      if (this.blocked(x, y, 10) || this.team().some(d => Math.hypot(d.x - x, d.y - y) < 300)) continue;
+      const Z = ZOMBIE[kind], hp = Z.hp + (this.wave >= 6 ? 1 : 0);
+      this.zombies.push({ id: this.uid++, kind, x, y, hp, max: hp, dir: 0, hitCd: 1, stun: 0, scared: 0, groan: Math.random() * 5 });
+      return true;
+    }
+    return false;
+  }
+  zombieInReach(a) {
+    let best = null, bd = BONK_REACH + 8;
+    for (const z of this.zombies) {
+      const dd = dist(a, z) - ZOMBIE[z.kind].r * .5; if (dd > bd) continue;
+      let da = Math.atan2(z.y - a.y, z.x - a.x) - a.dir; da = Math.atan2(Math.sin(da), Math.cos(da));
+      if (Math.abs(da) < BONK_ARC + .2 || dd < 26) { bd = dd; best = z; }
+    }
+    return best;
+  }
+  hitZombie(z, a, dmg, blast) {
+    if (!this.zombies.includes(z)) return;
+    z.hp -= dmg; z.stun = blast ? .9 : .45;
+    const ang = Math.atan2(z.y - a.y, z.x - a.x), kb = z.kind === 'brute' ? 8 : 26;
+    z.x += Math.cos(ang) * kb; z.y += Math.sin(ang) * kb; this.fit(z);
+    if (z.hp > 0) { this.ev.push(['zhurt', z.id, a.id]); return; }
+    this.zombies.splice(this.zombies.indexOf(z), 1); this.kills++;
+    a.banked += z.kind === 'brute' ? 50 : 10;
+    this.ev.push(['zdie', z.id, a.id, Math.round(z.x), Math.round(z.y), ZOMBIE[z.kind].code]);
+    this.stat(a.id, 'zkills');
+    if (Math.random() < (z.kind === 'brute' ? 1 : .12)) { // sometimes they drop something useful
+      const ti = z.kind === 'brute' ? 2 : 1, b = { id: this.uid++, x: z.x, y: z.y, ti, name: this.itemName(ti), prog: TYPES[ti].taps - 1 };
+      if (!this.blocked(b.x, b.y)) { this.buried.push(b); this.ev.push(['spawn', b.id, Math.round(b.x), Math.round(b.y), ti, b.name, 0]); }
+    }
+  }
+  coopSupply(d, item) {
+    if (COOP_HEAL[item.ti] != null) {
+      const before = d.hp; d.hp = Math.min(MAX_HP, d.hp + COOP_HEAL[item.ti]); d.banked += 5;
+      this.ev.push(['supply', d.id, 'heal', Math.round(d.hp - before), item.name]);
+    } else { d.banked += 10; this.givePower(d, pick(COOP_POWERS), 'box'); }
+  }
+  coopPart() {
+    this.parts++;
+    this.ev.push(['part', this.parts, COOP.escape.parts]);
+    if (this.parts >= COOP.escape.parts) { for (const d of this.team()) d.banked += 200; this.flush(); this.coopEnd(true); return; }
+    this.spawnItem(true, HEAVY);
+  }
+  knockDown(d) {
+    if (d.down) return;
+    d.down = true; d.hp = 0; d.revive = 0; d.stun = 1;
+    if (d.carry) this.unlift(d);
+    this.ev.push(['down', d.id]);
+  }
+  coopTick(dt) {
+    this.zt += dt;
+    // ----- waves (Survive and Endless) or a steady stream (Escape) -----
+    if (this.mode === 'escape') {
+      if ((this.spawnT -= dt) <= 0) { this.spawnT = Math.max(1.4, 4.5 - this.zt / 50); if (this.zombies.length < 40) this.spawnZombie(this.zt > 60 && Math.random() < .3 ? 'runner' : 'walker'); }
+      if ((this.bruteT = (this.bruteT ?? 50) - dt) <= 0) { this.bruteT = 45; this.spawnZombie('brute'); }
+    } else {
+      if (this.toSpawn.length) { if ((this.spawnT -= dt) <= 0) { this.spawnT = .7; if (this.spawnZombie(this.toSpawn[0])) this.toSpawn.shift(); } }
+      else if (!this.zombies.length) {
+        if (this.wave > 0 && !this.waveDone) { // wave cleared
+          this.waveDone = true; this.breakT = 12;
+          for (const d of this.team()) d.banked += 100;
+          if (this.mode === 'endless') for (const d of this.team()) this.stat(d.id, 'zwaveBest', this.wave, 'max');
+          this.ev.push(['wavedone', this.wave]);
+          if (this.mode === 'survive' && this.wave >= COOP.survive.waves) { this.flush(); this.coopEnd(true); return; }
+          for (const d of this.team()) if (d.down) { d.down = false; d.hp = 40; d.stun = 0; this.ev.push(['revived', d.id, 0]); } else d.hp = Math.min(MAX_HP, d.hp + 25); // a breather patches everyone up
+          for (let i = 0; i < 8; i++) this.spawnItem(false);
+        }
+        if ((this.breakT -= dt) <= 0) { this.waveDone = false; this.startWave(); }
+      }
+    }
+    // ----- zombies shamble after the nearest person who's still up -----
+    const speedUp = 1 + Math.min(.6, (this.mode === 'escape' ? this.zt / 240 : this.wave * .05));
+    for (const z of this.zombies) {
+      const Z = ZOMBIE[z.kind];
+      z.hitCd -= dt; if ((z.groan -= dt) <= 0) { z.groan = 4 + Math.random() * 6; this.ev.push(['groan', z.id]); }
+      if (z.stun > 0) { z.stun -= dt; continue; }
+      let tg = null, bd = 1e9;
+      for (const d of this.diggers) { if (d.down || d.npc) continue; const dd = dist(d, z); if (dd < bd) { bd = dd; tg = d; } }
+      if (!tg) continue;
+      let ang = Math.atan2(tg.y - z.y, tg.x - z.x);
+      if (z.scared > 0) { z.scared -= dt; ang += Math.PI; }
+      const sp = Z.speed * speedUp * (z.scared > 0 ? 1.4 : 1);
+      z.x += Math.cos(ang) * sp * dt; z.y += Math.sin(ang) * sp * dt;
+      let da = ang - z.dir; da = Math.atan2(Math.sin(da), Math.cos(da)); z.dir += da * Math.min(1, dt * 6);
+      for (const o of this.zombies) if (o !== z) { const dd = dist(o, z), min = (Z.r + ZOMBIE[o.kind].r) * .8; if (dd < min && dd > 0.01) { z.x += (z.x - o.x) / dd * (min - dd) * .5; z.y += (z.y - o.y) / dd * (min - dd) * .5; } }
+      this.fit(z);
+      if (bd < Z.r + 13 && z.hitCd <= 0 && z.scared <= 0) { // bite
+        z.hitCd = 1; tg.hp -= Z.dmg;
+        const ka = Math.atan2(tg.y - z.y, tg.x - z.x); tg.x += Math.cos(ka) * 12; tg.y += Math.sin(ka) * 12; this.fit(tg);
+        if (!tg.isBot) this.ev.push(['pos', tg.id, Math.round(tg.x), Math.round(tg.y)]);
+        this.ev.push(['zhit', z.id, tg.id, Math.max(0, Math.ceil(tg.hp))]);
+        if (tg.hp <= 0) this.knockDown(tg);
+      }
+    }
+    // ----- the downed wait for a teammate to stand over them; the Museum patches people up -----
+    for (const d of this.diggers) {
+      if (d.npc) continue;
+      if (d.down) {
+        d.stun = .5;
+        const helpers = this.diggers.filter(o => o !== d && !o.down && !o.npc && dist(o, d) < 40).length;
+        d.revive = helpers ? d.revive + dt * helpers : Math.max(0, d.revive - dt * .5);
+        if (d.revive >= REVIVE_TIME) { d.down = false; d.hp = 40; d.revive = 0; d.stun = 0; this.ev.push(['revived', d.id, 1]); for (const o of this.diggers) if (o !== d && !o.down && dist(o, d) < 40) { o.banked += 25; this.stat(o.id, 'revives'); } }
+      } else if (this.inMuseum(d.x, d.y, 10) && d.hp < MAX_HP) d.hp = Math.min(MAX_HP, d.hp + dt * 4);
+    }
+    if (this.team().every(d => d.down)) { this.flush(); this.coopEnd(false); }
+  }
+  // a simple team-mate: revive people, fight what's close, otherwise dig for supplies or carry parts
+  coopBot(b, dt) {
+    const ai = b.ai; if (b.down) { b.moving = false; return; }
+    if (b.stun > 0) { b.moving = false; return; }
+    const go = (x, y, sp = 150) => { const a = Math.atan2(y - b.y, x - b.x); this.moveDigger(b, Math.cos(a), Math.sin(a), dt, sp); };
+    if (b.power && (b.power !== 'q' || this.zombies.filter(z => dist(z, b) < SHOCK_R).length >= 3)) this.usePower(b);
+    // carrying an engine part to the bus
+    if (b.carry) { const h = b.carry; if (!this.heavies.includes(h)) { b.carry = null; return; } if (h.carriers.length < 2) { if ((ai.holdT = (ai.holdT || 0) + dt) > 12) { this.unlift(b); ai.holdT = 0; } b.moving = false; return; } ai.holdT = 0; return go(this.M.x, this.M.y, 170); }
+    let near = null, nd = 1e9; for (const z of this.zombies) { const dd = dist(z, b); if (dd < nd) { nd = dd; near = z; } }
+    const downed = this.team().filter(d => d.down && d !== b).sort((p, q) => dist(p, b) - dist(q, b))[0];
+    if (downed && dist(downed, b) < 600 && nd > 40) { if (dist(downed, b) > 20) go(downed.x, downed.y, 170); else b.moving = false; return; }
+    if (near && nd < (b.hp < 35 ? 90 : 240)) { b.dir = Math.atan2(near.y - b.y, near.x - b.x); if (nd > 34) go(near.x, near.y, 160); else { b.moving = false; this.bonk(b); } return; }
+    if (b.hp < 35 && !this.inMuseum(b.x, b.y)) return go(this.M.x, this.M.y, 170);
+    if (this.mode === 'escape') { // help carry parts
+      const h = this.heavies.find(x => x.carriers.length < 2 && !x.carriers.includes(b) && dist(x, b) < 900);
+      if (h) { if (dist(h, b) > 50) return go(h.x, h.y, 165); this.lift(b, h); return; }
+    }
+    if (!ai.target || !this.buried.includes(ai.target)) { let best = null, bdd = 1e9; for (const it of this.buried) { const dd = dist(it, b) * (it.ti === HEAVY && this.mode !== 'escape' ? 9 : 1); if (dd < bdd) { bdd = dd; best = it; } } ai.target = best; }
+    const it = ai.target; if (!it) { b.moving = false; return; }
+    if (dist(it, b) > 26) return go(it.x, it.y, 140);
+    b.moving = false; if ((ai.digT = (ai.digT || 0) - dt) <= 0) { ai.digT = .45; this.digAt(b, it); }
+  }
+  coopEnd(won) {
+    if (this.state !== 'play') return;
+    if (won && this.mode === 'survive') for (const d of this.team()) this.stat(d.id, 'survived');
+    if (won && this.mode === 'escape') for (const d of this.team()) this.stat(d.id, 'escaped');
+    this.coopResult = { mode: this.mode, won: !!won, wave: this.wave, kills: this.kills, parts: this.parts };
+    this.end();
+  }
+
   // ----- achievements: count things signed-in players do, and tell them the moment one unlocks -----
   clientOf(id) { for (const [ws, c] of this.clients) if (c.id === id) return [ws, c]; return [null, null]; }
   stat(id, key, n = 1, mode) {
@@ -1220,7 +1428,10 @@ class Room {
       t: 's', tl: Math.round(this.timeLeft * 10) / 10, sea: this.map.tide ? Math.round(this.sea) : undefined,
       d: this.diggers.map(d => [d.id, Math.round(d.x), Math.round(d.y), Math.round(d.dir * 100) / 100, d.stun > 0 ? 1 : 0, d.immune > 0 ? 1 : 0,
         d.bag.map(b => b.ti).join(''), d.banked, d.moving ? 1 : 0, d.held.length > 1 ? d.held.join('') + ':' + d.sel : d.power || '',
-        Object.keys(d.fx).map(k => k + Math.ceil(d.fx[k])).join('') + (d.padlock ? 'p' : '') + (d.lucky > 0 ? 'l' + d.lucky : '') + (d.tired > 0 ? 'z' + Math.ceil(d.tired) : '')]),
+        Object.keys(d.fx).map(k => k + Math.ceil(d.fx[k])).join('') + (d.padlock ? 'p' : '') + (d.lucky > 0 ? 'l' + d.lucky : '') + (d.tired > 0 ? 'z' + Math.ceil(d.tired) : ''),
+        d.hp != null ? Math.ceil(d.hp) : -1, d.down ? 1 + Math.round(Math.min(1, d.revive / REVIVE_TIME) * 99) : 0]),
+      z: this.zombies && this.zombies.length ? this.zombies.map(z => [z.id, Math.round(z.x), Math.round(z.y), Math.round(z.dir * 100) / 100, z.hp, z.max, ZOMBIE[z.kind].code, z.stun > 0 ? 1 : 0]) : undefined,
+      co: this.isCoop() ? this.coopInfo() : undefined,
       hv: this.heavies.map(h => [h.id, Math.round(h.x), Math.round(h.y), h.carriers.map(c => c.id).join(','), h.hp, Math.ceil(h.wait)]),
       c: this.crates.map(c => [c.id, Math.round(c.x), Math.round(c.y)]),
       m: this.magpies.map(m => [m.id, Math.round(m.x), Math.round(m.y), Math.round(m.alt), Math.round(m.dir * 100) / 100, m.item ? m.item.ti : -1, m.stun > 0 ? 1 : 0, m.kind === 'dog' ? 1 : m.kind === 'ghost' ? 2 : 0]),
@@ -1264,7 +1475,7 @@ async function api(req, res) {
     if (path === '/api/catalog') return send(200, { catalog: CATALOG, achievements: ACHIEVEMENTS, season: { halloween: seasonOn('halloween') }, loadout: LOADOUT_CFG, levels: Array.from({ length: MAX_LEVEL }, (_, i) => xpForLevel(i + 1)), persistent: accounts.persistent, dbError, googleClientId: GOOGLE_CLIENT_ID });
     if (req.method !== 'POST') return send(405, { error: 'Use POST.' });
     if (path === '/api/clientlog') { const b = await readJson(req); console.error('CLIENT ERROR', JSON.stringify({ where: String(b.where).slice(0, 30), v: String(b.v).slice(0, 20), map: String(b.map).slice(0, 12), inGame: !!b.inGame, state: String(b.state).slice(0, 10), ua: String(b.ua).slice(0, 160) }), '\n' + String(b.msg).slice(0, 600)); return send(200, { ok: true }); }
-    if (path === '/api/leaderboard') { const b = await readJson(req), kind = ['week', 'all', 'wins'].includes(b.kind) ? b.kind : 'week', ses = await accounts.session(bearer(req)).catch(() => null); return send(200, await accounts.leaderboard(kind, ses && ses.acct)); }
+    if (path === '/api/leaderboard') { const b = await readJson(req), kind = ['week', 'all', 'wins', 'zombies'].includes(b.kind) ? b.kind : 'week', ses = await accounts.session(bearer(req)).catch(() => null); return send(200, await accounts.leaderboard(kind, ses && ses.acct)); }
     const body = await readJson(req);
     const ip = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
     const slow = () => limited(ip) && send(429, { error: 'Too many attempts. Wait a few minutes and try again.' });
@@ -1425,6 +1636,7 @@ function onConnection(ws) {
     if (msg.t === 'start') { if (me === room.host && room.state !== 'play' && !room.public) room.start(); return; }
     if (msg.t === 'look') { room.setLook(me, msg.look); return; }
     if (msg.t === 'map') { if (me === room.host && !room.public) room.setMap(String(msg.id)); return; }
+    if (msg.t === 'mode') { if (me === room.host && !room.public && room.state !== 'play') { room.mode = COOP[msg.id] ? String(msg.id) : 'classic'; room.lobbyMsg(); } return; }
     if (msg.t === 'theme') { if (me === room.host && !room.public && room.state !== 'play') { room.theme = msg.on && seasonOn('halloween') ? 'halloween' : ''; room.lobbyMsg(); } return; }
     room.onInput(me, msg);
   });

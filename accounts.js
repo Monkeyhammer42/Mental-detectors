@@ -69,6 +69,12 @@ const ACHIEVEMENTS = [
   { id: 'level_50', name: 'Master detectorist', desc: 'Reach level 50', stat: 'level', goal: 50, coins: 1000, gpgs: null, steps: true },
   { id: 'halloween_bank', name: 'Trick or treasure', desc: 'Bank 300 points on the Haunted Field', stat: 'hauntedBank', goal: 300, coins: 150, gpgs: null, season: 'halloween' },
   { id: 'ghostbuster', name: 'Ghostbuster', desc: 'Bonk 5 ghosts', stat: 'ghosts', goal: 5, coins: 150, gpgs: null, season: 'halloween', steps: true },
+  { id: 'zkills_50', name: 'Zombie bonker', desc: 'Bonk 50 zombies down', stat: 'zkills', goal: 50, coins: 100, gpgs: null, steps: true },
+  { id: 'zkills_500', name: 'Apocalypse pro', desc: 'Bonk 500 zombies down', stat: 'zkills', goal: 500, coins: 400, gpgs: null, steps: true },
+  { id: 'survived', name: 'Survivor', desc: 'Win a game of Survive', stat: 'survived', goal: 1, coins: 150, gpgs: null },
+  { id: 'escaped', name: 'Get to the bus!', desc: 'Win a game of Escape', stat: 'escaped', goal: 1, coins: 150, gpgs: null },
+  { id: 'endless_10', name: 'Still standing', desc: 'Reach wave 10 in Endless', stat: 'zwaveBest', goal: 10, coins: 250, gpgs: null, steps: true },
+  { id: 'medic', name: 'Medic!', desc: 'Revive team-mates 10 times', stat: 'revives', goal: 10, coins: 100, gpgs: null, steps: true },
   { id: 'owned_20', name: 'Fashionista', desc: 'Own 20 cosmetics', stat: 'owned', goal: 20, coins: 150, gpgs: null, steps: true },
 ];
 const ACH_BY_STAT = {};
@@ -129,7 +135,7 @@ class MemStore {
   async delSession(hash) { this.sessions.delete(hash); }
   async delSessions(key) { for (const [h, s] of this.sessions) if (s.key === key) this.sessions.delete(h); }
   async top(kind, wk) {
-    const v = d => kind === 'week' ? (d.week && d.week.key === wk ? d.week.banked : 0) : kind === 'wins' ? d.wins || 0 : (d.stats && d.stats.banked) || 0;
+    const v = d => kind === 'week' ? (d.week && d.week.key === wk ? d.week.banked : 0) : kind === 'wins' ? d.wins || 0 : kind === 'zombies' ? (d.stats && d.stats.zwaveBest) || 0 : (d.stats && d.stats.banked) || 0;
     return [...this.players.values()].map(p => ({ name: p.name, value: v(p.data), level: levelFor(p.data.xp) })).filter(r => r.value > 0).sort((a, b) => b.value - a.value).slice(0, 20);
   }
 }
@@ -168,7 +174,7 @@ class PgStore {
   async delSessions(key) { await this.db.query('DELETE FROM fk_sessions WHERE name_key = $1', [key]); }
   async top(kind, wk) {
     const expr = kind === 'week' ? "CASE WHEN data->'week'->>'key' = $1 THEN COALESCE((data->'week'->>'banked')::int, 0) ELSE 0 END"
-      : kind === 'wins' ? "COALESCE((data->>'wins')::int, 0)" : "COALESCE((data->'stats'->>'banked')::int, 0)";
+      : kind === 'wins' ? "COALESCE((data->>'wins')::int, 0)" : kind === 'zombies' ? "COALESCE((data->'stats'->>'zwaveBest')::int, 0)" : "COALESCE((data->'stats'->>'banked')::int, 0)";
     const r = await this.db.query(`SELECT name, (${expr}) AS value, data->>'xp' AS xp FROM fk_players ORDER BY 2 DESC LIMIT 20`, kind === 'week' ? [wk] : []);
     return r.rows.map(x => ({ name: x.name, value: Number(x.value) || 0, level: levelFor(Number(x.xp) || 0) })).filter(x => x.value > 0);
   }
@@ -372,7 +378,7 @@ class Accounts {
     let rows = hit && Date.now() - hit.at < 20000 ? hit.rows : null;
     if (!rows) { rows = await this.store.top(kind, weekKey()); (this.lbCache = this.lbCache || {})[key] = { at: Date.now(), rows }; }
     // what everyone else sees can lag 20s; your own line is always up to date
-    const val = a => kind === 'week' ? (a.data.week && a.data.week.key === weekKey() ? a.data.week.banked : 0) : kind === 'wins' ? a.data.wins || 0 : (a.data.stats && a.data.stats.banked) || 0;
+    const val = a => kind === 'week' ? (a.data.week && a.data.week.key === weekKey() ? a.data.week.banked : 0) : kind === 'wins' ? a.data.wins || 0 : kind === 'zombies' ? (a.data.stats && a.data.stats.zwaveBest) || 0 : (a.data.stats && a.data.stats.banked) || 0;
     let list = rows.map(r => ({ ...r }));
     if (me) { const v = val(me), i = list.findIndex(r => r.name === me.name); if (i >= 0) list[i].value = v; else if (v > 0) list.push({ name: me.name, value: v, level: this.level(me) }); list.sort((a, b) => b.value - a.value); }
     list = list.filter(r => r.value > 0).slice(0, 20);

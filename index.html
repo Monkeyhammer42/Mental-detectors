@@ -250,6 +250,27 @@ canvas.stage{width:100%;height:auto;border-radius:12px;display:block;margin-bott
 .panel .mapPick button.hwMap.on{background:#4a2266;color:#ffd9a0}
 .panel .mapPick button.themeBtn{width:100%;margin:0 0 10px;border-color:#c45a10;color:#c45a10}
 .panel .mapPick button.themeBtn.on{background:#c45a10;color:#fff3e0}
+.modePick{margin:0 0 10px}
+.modePick .row2{margin:0}
+.panel .modePick button{font-size:14px;padding:8px 6px;margin:0 0 8px;background:transparent;color:#3f5a2a;border:2px solid #3f5a2a;box-shadow:none;line-height:1.1}
+.panel .modePick button small{display:block;font:800 10px Nunito,sans-serif;opacity:.75;margin-top:2px;letter-spacing:.02em}
+.panel .modePick button.z{border-color:#3d6b2a;color:#2f5a1e}
+.panel .modePick button.on{background:#3f5a2a;color:var(--paper)}
+.panel .modePick button.z.on{background:#2c4a1e;color:#c8f59a}
+.panel .modePick button:disabled:not(.on){opacity:.45}
+.panel .modePick button:disabled{opacity:1}
+#end .modeNote{display:none}
+.modeNote{font:700 12px Nunito,sans-serif;color:#5a6b48;margin:-2px 0 10px;min-height:16px}
+.panel .seg.four{grid-template-columns:1fr 1fr 1fr 1fr}
+.panel .seg.four button{font-size:13px;padding-left:2px;padding-right:2px}
+body.coop #shop{display:none!important}
+#hpBar{position:absolute;left:0;right:0;bottom:3px;height:5px;margin:0 8px;border-radius:3px;background:rgba(0,0,0,.25);overflow:hidden;display:none}
+#hpBar i{display:block;height:100%;width:100%;background:#7ee07e;transition:width .2s}
+body.coop #hpBar{display:block}
+body.coop .hud .card.hurt{animation:hurt .35s}
+@keyframes hurt{0%{background:#ff6b5b}100%{}}
+#downMsg{position:absolute;left:50%;top:42%;transform:translate(-50%,-50%);text-align:center;color:#fff;font:400 26px var(--display,'Lilita One'),sans-serif;text-shadow:0 3px 0 rgba(0,0,0,.6);pointer-events:none;z-index:6}
+#downMsg small{display:block;font:800 13px Nunito,sans-serif;margin-top:6px;opacity:.9}
 #wGrid button.seasonal{border-color:#ff8a2a!important}
 #wGrid button.seasonal small:not(.own)::after{content:" \00B7 HALLOWEEN";color:#c45a10}
 .panel button.tutBtn{margin-top:10px;font-size:15px;padding:10px;display:flex;justify-content:center;align-items:center;gap:8px}
@@ -310,7 +331,7 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
   <canvas id="c"></canvas>
   <div class="hud">
     <div class="card" id="banked"><small>Banked</small><b id="bankedN">0</b></div>
-    <div class="card"><small>In bag</small><b id="bagN">0</b></div>
+    <div class="card" id="bagCard" style="position:relative"><small id="bagL">In bag</small><b id="bagN">0</b><span id="hpBar"><i id="hpFill"></i></span></div>
     <div class="card" id="timer"><small>Closes in</small><b id="timeN">3:00</b></div>
   </div>
   <div id="signal" aria-hidden="true"><i id="sigBar"></i></div>
@@ -318,6 +339,7 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
   <div id="fx" aria-live="polite"></div>
   <div id="chatPop" hidden><div class="phr" id="chatPhr"></div><div class="emo" id="chatEmo"></div></div>
   <div id="coach" hidden><small><span id="coachStep">Step 1 of 6</span><button id="coachSkip">Skip tutorial</button></small><b id="coachTitle"></b><p id="coachText"></p><div class="dots" id="coachDots"></div><div class="row2" id="coachDone" hidden><button id="coachQuick">Quick play</button><button id="coachMenu" class="alt">Menu</button></div></div>
+  <div id="downMsg" hidden>You're down!<small>Stay put: a team-mate can pick you up</small></div>
   <div id="banner" hidden aria-live="assertive"><b id="bannerT"></b><span id="bannerS"></span></div>
   <canvas id="evBan" aria-hidden="true"></canvas>
   <div class="topright">
@@ -431,7 +453,7 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
   <div id="lb" class="overlay" hidden>
     <div class="panel">
       <h2>Leaderboards</h2>
-      <div class="seg three" id="lbTabs"><button data-lb="week" class="on">This week</button><button data-lb="all">All time</button><button data-lb="wins">Wins</button></div>
+      <div class="seg four" id="lbTabs"><button data-lb="week" class="on">This week</button><button data-lb="all">All time</button><button data-lb="wins">Wins</button><button data-lb="zombies">Zombies</button></div>
       <p class="note" id="lbNote"></p>
       <ol class="lbList" id="lbList"></ol>
       <p class="note" id="lbMe"></p>
@@ -445,11 +467,12 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
       <div class="code" id="lobbyCode">----</div>
       <button id="shareBtn" class="ghost">Send invite link</button>
       <p class="note" id="shareNote"></p>
+      <label class="modeLbl">Game mode</label><div class="modePick"><div class="row2"><button data-mode="classic">Classic<small>Every digger for themselves</small></button><button data-mode="survive" class="z">Zombies: Survive<small>Hold out for 5 waves</small></button></div><div class="row2"><button data-mode="endless" class="z">Zombies: Endless<small>How long can you last?</small></button><button data-mode="escape" class="z">Zombies: Escape<small>Fix the bus and get out</small></button></div></div><p class="modeNote"></p>
       <label>Map</label>
       <div class="mapPick"><div class="row2"><button data-map="field">Farmer's Field</button><button data-map="beach">The Beach</button></div><div class="row2"><button data-map="park">The Park</button><button data-map="mountain">The Mountain</button></div><button class="hwOnly themeBtn" hidden>Halloween night: Off</button></div>
       <label>Diggers here</label>
       <ul class="plist" id="lobbyList"></ul>
-      <p class="note">Bots fill any empty spots up to 6 diggers.</p>
+      <p class="note" id="botNote">Bots fill any empty spots up to 6 diggers.</p>
       <div class="row2"><button class="ghost wardOpen">Wardrobe</button><button class="ghost loadOpen">Powerups<small class="loadN">none</small></button></div>
       <button id="startBtn">Start round</button>
       <p class="note" id="waitNote" hidden>Waiting for the host to start&hellip;</p>
@@ -466,6 +489,7 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
       <div class="daily"></div>
       <ul class="plist" id="endList"></ul>
       <p id="endNote"></p>
+      <div class="modePick"><div class="row2"><button data-mode="classic">Classic<small>Every digger for themselves</small></button><button data-mode="survive" class="z">Zombies: Survive<small>Hold out for 5 waves</small></button></div><div class="row2"><button data-mode="endless" class="z">Zombies: Endless<small>How long can you last?</small></button><button data-mode="escape" class="z">Zombies: Escape<small>Fix the bus and get out</small></button></div></div><p class="modeNote"></p>
       <div class="mapPick"><div class="row2"><button data-map="field">Farmer's Field</button><button data-map="beach">The Beach</button></div><div class="row2"><button data-map="park">The Park</button><button data-map="mountain">The Mountain</button></div><button class="hwOnly themeBtn" hidden>Halloween night: Off</button></div>
       <button id="againBtn">Play again</button>
       <p class="note" id="againNote" hidden>Waiting for the host to start the next round&hellip;</p>
@@ -573,7 +597,7 @@ const cv = $('c'), ctx = cv.getContext('2d');
 let TYPES = [], WORLD = 1800, MUSEUM = {x: 900, y: 880, w: 220, h: 150}, ROUND = 180, DUSK = 30;
 let ws = null, myId = null, hostId = null, roomCode = null, roomState = 'lobby', inGame = false;
 let buried = new Map(), holes = [], loose = new Map(), diggers = new Map(), magpies = new Map(), crates = new Map(), heavies = new Map(), trails = [], POWERS = {};
-const BOX = 4, POW_COL = {c: '#8fe6ff', t: '#ffb347', w: '#7ee07e', p: '#d9d9d9', s: '#f2d16b', d: '#ff8ad8', m: '#7fb3ff', l: '#5fd35f', r: '#e8c47a', b: '#ffe14d', k: '#9acd32', g: '#ff9f43', q: '#ff5e5e', x: '#9acd32', z: '#ff7a6b'};
+const BOX = 4, POW_COL = {c: '#8fe6ff', t: '#ffb347', w: '#7ee07e', p: '#d9d9d9', s: '#f2d16b', d: '#ff8ad8', m: '#7fb3ff', l: '#5fd35f', r: '#e8c47a', b: '#ffe14d', k: '#9acd32', g: '#ff9f43', q: '#ff5e5e', x: '#9acd32', z: '#ff7a6b', h: '#e0a458'};
 let traps = new Map(), effects = [], flies = [];
 const spooky = () => MAP === 'haunted' || THEME === 'halloween';
 const bird = () => spooky() ? 'Bat' : ({beach: 'Seagull', park: 'Pigeon', mountain: 'Crow'})[MAP] || 'Magpie';
@@ -602,7 +626,8 @@ let evBanner = null;
 const EVB = { // ribbon colour and what carries it
   storm: ['#3a3f5c', 'cloud'], tractor: ['#3b8d3b', 'tractor'], club: ['#7d8a6a', 'walkers'], goldrush: ['#c9a227', 'coin'], fog: ['#6b7480', 'mist'],
   wave: ['#1f6fa0', 'wave'], swarm: ['#2b2b2b', 'flyers'], dog: ['#a0682f', 'dog'], keeper: ['#2f5d3a', 'keeper'], icecream: ['#e874a8', 'van'],
-  avalanche: ['#5a7a9a', 'snow'], skiers: ['#d63031', 'skier'], snowmobile: ['#d63031', 'sled'], ghosts: ['#4a2266', 'ghosts']};
+  avalanche: ['#5a7a9a', 'snow'], skiers: ['#d63031', 'skier'], snowmobile: ['#d63031', 'sled'], ghosts: ['#4a2266', 'ghosts'],
+  zombies: ['#3d5a22', 'horde'], cleared: ['#2f6b3a', 'coin'], bus: ['#c4900c', 'bus']};
 function drawEventBanner(dt){
   const cv2 = $('evBan'); if (!evBanner){ if (cv2.width) cv2.width = 0; return; }
   const B = evBanner; B.t += dt; const DUR = 4.4; if (B.t > DUR){ evBanner = null; return; }
@@ -613,7 +638,7 @@ function drawEventBanner(dt){
   // slide in from the left, hold, carry off to the right
   const home = W/2 - bw/2 - 26, x0 = B.t < .9 ? -bw - 140 + (home + bw + 140)*ease(B.t/.9) : B.t > DUR - .8 ? home + (W + 60 - home)*Math.pow((B.t - DUR + .8)/.8, 2) : home;
   const by = 40, tt = t*1;
-  const carried = !['mist', 'cloud', 'flyers', 'ghosts', 'walkers', 'wave'].includes(carrier); // these hold it from above/below instead of pulling
+  const carried = !['mist', 'cloud', 'flyers', 'ghosts', 'walkers', 'wave', 'horde'].includes(carrier); // these hold it from above/below instead of pulling
   const cx = x0 + bw + (carried ? 34 : 0), cy = by + bh/2;
   // the ribbon, flapping a little
   g.save(); g.shadowColor = 'rgba(0,0,0,.35)'; g.shadowBlur = 10; g.shadowOffsetY = 4;
@@ -630,6 +655,12 @@ function drawEventBanner(dt){
   const person = (x, y, body, hat) => { legs(x, y + 8, '#2b3a20'); g.fillStyle = body; g.beginPath(); g.ellipse(x, y, 6, 10, 0, 0, 7); g.fill(); g.fillStyle = '#f0c9a0'; g.beginPath(); g.arc(x, y - 13, 5, 0, 7); g.fill(); if (hat){ g.fillStyle = hat; g.fillRect(x - 6, y - 19, 12, 4); g.fillRect(x - 4, y - 23, 8, 5); } };
   const wheel = (x, y, r) => { g.fillStyle = '#222'; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); g.fillStyle = '#888'; g.beginPath(); g.arc(x, y, r*.4, 0, 7); g.fill(); };
   switch (carrier){
+    case 'horde': for (let i = 0; i < 5; i++){ const px = x0 + 20 + i*(bw - 40)/4 + Math.sin(tt*3 + i)*3, py = by + bh + 18 + (i % 2)*4, sk = '#7aa64a', st = Math.sin(tt*7 + i*1.7);
+      g.strokeStyle = '#3a3026'; g.lineWidth = 3; g.lineCap = 'round'; g.beginPath(); g.moveTo(px, py + 8); g.lineTo(px - 4 + st*3, py + 18); g.moveTo(px, py + 8); g.lineTo(px + 4 - st*3, py + 18); g.stroke();
+      g.fillStyle = Z_SHIRT[i]; g.beginPath(); g.ellipse(px, py, 6, 10, 0, 0, 7); g.fill();
+      g.strokeStyle = sk; g.lineWidth = 3; g.beginPath(); g.moveTo(px, py - 6); g.lineTo(px + 6, by + bh - 2 + st); g.moveTo(px - 2, py - 4); g.lineTo(px + 2, by + bh - 1 - st); g.stroke(); // arms reaching up to hold the banner
+      g.fillStyle = sk; g.beginPath(); g.arc(px, py - 13, 5.5, 0, 7); g.fill(); g.fillStyle = '#ff3b2f'; g.fillRect(px - 3, py - 15, 2, 2); g.fillRect(px + 1, py - 15, 2, 2); } break;
+    case 'bus': g.fillStyle = '#e8b21a'; g.beginPath(); g.roundRect(cx - 24, cy - 24, 56, 32, 5); g.fill(); g.fillStyle = '#9fd8ef'; for (let i = 0; i < 3; i++) g.fillRect(cx - 20 + i*16, cy - 20, 12, 10); g.fillStyle = '#c4900c'; g.fillRect(cx - 24, cy - 4, 56, 4); wheel(cx - 12, cy + 9, 7); wheel(cx + 20, cy + 9, 7); break;
     case 'tractor': g.fillStyle = '#3b8d3b'; g.fillRect(cx - 18, cy - 10, 40, 18); g.fillRect(cx + 4, cy - 26, 18, 18); g.fillStyle = '#cfe8ef'; g.fillRect(cx + 7, cy - 23, 12, 10); g.fillStyle = '#555'; g.fillRect(cx - 14, cy - 22, 4, 12); wheel(cx - 8, cy + 10, 11); wheel(cx + 18, cy + 12, 7);
       g.fillStyle = `rgba(90,90,90,${.4 + Math.random()*.2})`; g.beginPath(); g.arc(cx - 12, cy - 30 - (tt*30 % 12), 4, 0, 7); g.fill(); break;
     case 'sled': g.fillStyle = '#d63031'; g.beginPath(); g.moveTo(cx - 20, cy); g.lineTo(cx + 22, cy); g.lineTo(cx + 14, cy - 12); g.lineTo(cx - 14, cy - 12); g.fill(); g.fillStyle = '#333'; g.fillRect(cx - 22, cy + 4, 46, 4); person(cx - 4, cy - 22, '#2d5f9e'); for (let i = 0; i < 4; i++){ g.fillStyle = 'rgba(255,255,255,.8)'; g.beginPath(); g.arc(cx - 28 - i*8, cy + 4 + Math.sin(tt*20 + i)*3, 4 - i*.5, 0, 7); g.fill(); } break;
@@ -675,6 +706,14 @@ function startEvent(kind, dur, data, elapsed){
   if (kind === 'skiers') [0, 200].forEach(ms => setTimeout(() => noise(.5, 2500, .6, .4, 'highpass'), ms));
   if (kind === 'snowmobile') [0, 300].forEach(ms => setTimeout(() => beep(330, .25, 'sawtooth', .06), ms));
 }
+let hurtFlash = 0, MODE = 'classic', lobbyMode = 'classic', zombies = new Map(), COOPI = null, zSay = 0;
+const COOP_MODES = {survive: 'Survive', endless: 'Endless', escape: 'Escape'};
+const MODE_NOTE = {classic: 'Find treasure, bank it at the Museum, bonk anyone carrying loot.',
+  survive: 'Team up against five waves of zombies. Dig up food and medicine to heal, bonk zombies, pick each other up.',
+  endless: 'Wave after wave until the whole team is down. Your best wave goes on the Zombies leaderboard.',
+  escape: 'Dig up 4 engine parts (two people carry each one) and get them to the bus at the Museum before time runs out.'};
+const coop = () => !!COOP_MODES[MODE];
+const dark = () => spooky() || coop();
 let THEME = '', CIRCLE = null, OBST = [], ICE = null, SLIPPERY = false, keeper = null, skiers = [], snowT = 0;
 let MAP = 'field', TIDE = null, WRECK = null, TOP = 70, sea = Infinity, seaT = Infinity, seaDir = 0, lobbyMap = 'field';
 let rings = [], floats = [], pops = [], dirt = [];
@@ -1156,6 +1195,10 @@ const flap = (v = 1) => noise(.09, 420, 1.2, .35*v, 'lowpass');
 const bark = (v = 1) => { if (!ac || muted || v < .02) return; for (const d of [0, .16]){ const o = ac.createOscillator(), g = ac.createGain(), at = ac.currentTime + d;
   o.type = 'square'; o.frequency.setValueAtTime(520, at); o.frequency.exponentialRampToValueAtTime(260, at + .09); g.gain.setValueAtTime(.06*v, at); g.gain.exponentialRampToValueAtTime(.0001, at + .11);
   o.connect(g).connect(out()); o.start(at); o.stop(at + .12); } noise(.12, 900, 1, .4*v); };
+const groan = (v = 1) => { if (!ac || muted || v < .02) return; const o = ac.createOscillator(), f = ac.createBiquadFilter(), g = ac.createGain(), at = ac.currentTime, base = 70 + Math.random()*40;
+  o.type = 'sawtooth'; o.frequency.setValueAtTime(base, at); o.frequency.linearRampToValueAtTime(base*1.35, at + .35); o.frequency.linearRampToValueAtTime(base*.8, at + .9);
+  f.type = 'bandpass'; f.frequency.value = 420; f.Q.value = 3; g.gain.setValueAtTime(0, at); g.gain.linearRampToValueAtTime(.09*v, at + .15); g.gain.linearRampToValueAtTime(0, at + .95);
+  o.connect(f); f.connect(g); g.connect(out()); o.start(at); o.stop(at + 1); };
 const wooo = (v = 1) => { if (!ac || muted || v < .02) return; const o = ac.createOscillator(), o2 = ac.createOscillator(), g = ac.createGain(), at = ac.currentTime;
   o.type = 'sine'; o.frequency.setValueAtTime(330, at); o.frequency.linearRampToValueAtTime(520, at + .5); o.frequency.linearRampToValueAtTime(300, at + 1.3);
   o2.type = 'sine'; o2.frequency.value = 6; const lfo = ac.createGain(); lfo.gain.value = 14; o2.connect(lfo).connect(o.frequency);
@@ -1180,7 +1223,7 @@ const POW_INFO = {
   p: ['Padlock', 'Blocks a bonk while you carry finds'], s: ['Scarecrow', 'Magpies leave you alone'], d: ['Decoy', 'Plants fake gold that is junk'],
   m: ['Magnet', 'Pulls in dropped finds and scrap'], l: ['Lucky charm', 'Next 3 finds upgraded a tier'], r: ['Treasure map', 'Marks the best finds'],
   b: ['Banana peel', 'Trap: whoever slips drops their best find'], k: ['Stink bomb', "Scrambles nearby detectors"], g: ['Sticky glove', 'Next bonk steals into your bag'],
-  q: ['Big bonk', 'Shockwave: everyone around you drops a find']};
+  q: ['Big bonk', 'Shockwave: everyone around you drops a find'], h: ['Cricket bat', 'Your bonks hit zombies twice as hard']};
 let lobbyTheme = '', SEASON = {}, roomPublic = false, autoIn = null, ACH = [], CAT = null, LOADOUT_CFG = {}, LEVELS = [], token = null, profile = null;
 try { token = localStorage.getItem('fk-token'); } catch (_) {}
 const store = (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (_) {} };
@@ -1401,8 +1444,8 @@ async function renderLb(){
   document.querySelectorAll('[data-lb]').forEach(b => b.classList.toggle('on', b.dataset.lb === lbKind));
   $('lbNote').textContent = 'Loading…'; $('lbList').innerHTML = ''; $('lbMe').textContent = '';
   try {
-    const r = await api('/api/leaderboard', {kind: lbKind}), unit = lbKind === 'wins' ? 'wins' : 'pts';
-    $('lbNote').textContent = lbKind === 'week' ? 'Points banked since Monday. Resets every week.' : lbKind === 'all' ? 'Points banked, ever.' : 'Rounds won, ever.';
+    const r = await api('/api/leaderboard', {kind: lbKind}), unit = lbKind === 'wins' ? 'wins' : lbKind === 'zombies' ? 'waves' : 'pts';
+    $('lbNote').textContent = lbKind === 'week' ? 'Points banked since Monday. Resets every week.' : lbKind === 'all' ? 'Points banked, ever.' : lbKind === 'zombies' ? 'Best wave reached in Zombies: Endless.' : 'Rounds won, ever.';
     $('lbList').innerHTML = r.rows.length ? r.rows.map((x, i) => `<li class="${r.me && x.name === r.me.name ? 'me' : ''}"><span class="rk">${i + 1}</span><span class="nm">${esc(x.name)}<small>LV ${x.level}</small></span><span class="vl">${x.value.toLocaleString()}</span></li>`).join('') : '<li><span class="nm">Nobody yet. Be the first!</span></li>';
     $('lbMe').textContent = !profile ? 'Sign in to get on the leaderboards.' : r.me && !r.me.rank ? `You: ${r.me.value.toLocaleString()} ${unit} (not in the top 20 yet)` : '';
   } catch (e) { $('lbNote').textContent = "Couldn't load the leaderboard. Try again in a moment."; }
@@ -1592,6 +1635,7 @@ $('shareBtn').addEventListener('click', async () => {
   catch (_) { $('shareNote').textContent = url; }
 });
 document.querySelectorAll('.mapPick button[data-map]').forEach(b => b.addEventListener('click', () => send({t: 'map', id: b.dataset.map})));
+document.querySelectorAll('.modePick button').forEach(b => b.addEventListener('click', () => send({t: 'mode', id: b.dataset.mode})));
 document.querySelectorAll('.themeBtn').forEach(b => b.addEventListener('click', () => send({t: 'theme', on: lobbyTheme !== 'halloween'})));
 
 
@@ -1609,6 +1653,10 @@ function renderLobby(players){
   const isHost = myId === hostId && !roomPublic;
   document.querySelectorAll('.mapPick').forEach(el => el.hidden = roomPublic);
   document.querySelectorAll('.mapPick button').forEach(b => { b.classList.toggle('on', b.dataset.map === lobbyMap); b.disabled = !isHost; });
+  document.querySelectorAll('.modePick, .modeLbl, .modeNote').forEach(el => el.hidden = roomPublic);
+  document.querySelectorAll('.modePick button').forEach(b => { b.classList.toggle('on', b.dataset.mode === lobbyMode); b.disabled = !isHost; });
+  document.querySelectorAll('.modeNote').forEach(el => el.textContent = MODE_NOTE[lobbyMode] || '');
+  $('botNote').textContent = COOP_MODES[lobbyMode] ? 'Bots join your team until there are 4 of you.' : 'Bots fill any empty spots up to 6 diggers.';
   document.querySelectorAll('.themeBtn').forEach(b => { const on = lobbyTheme === 'halloween'; b.classList.toggle('on', on); b.textContent = `Halloween night: ${on ? 'On' : 'Off'}`; b.disabled = !isHost; });
   $('startBtn').hidden = !isHost; $('waitNote').hidden = isHost;
   $('againBtn').hidden = !isHost; $('againNote').hidden = isHost;
@@ -1648,7 +1696,7 @@ function handle(m){
   if (m.t === 'reward'){ showReward(m); return; }
   if (m.t === 'hello'){ myId = m.you; $('homeErr').textContent = ''; return; }
   if (m.t === 'lobby'){
-    roomCode = m.code; hostId = m.host; roomState = m.state; lobbyMap = m.map || 'field'; roomPublic = !!m.public; autoIn = m.auto; lobbyTheme = m.theme || '';
+    roomCode = m.code; hostId = m.host; roomState = m.state; lobbyMap = m.map || 'field'; roomPublic = !!m.public; autoIn = m.auto; lobbyTheme = m.theme || ''; lobbyMode = m.mode || 'classic';
     if (joinMode !== 'tutorial') history.replaceState(null, '', roomPublic ? location.pathname : `?room=${roomCode}`);
     renderLobby(m.players);
     if (joinMode === 'tutorial') return;
@@ -1663,6 +1711,9 @@ function startRound(m){
   if (joinMode === 'tutorial') setTimeout(startTutorial, 300);
   TYPES = m.types; POWERS = m.powers || {};
   MAP = m.map || 'field'; if (m.museum) MUSEUM = m.museum; TIDE = m.tide || null; WRECK = m.wreck || null; TOP = m.top || 70;
+  MODE = m.mode || 'classic'; COOPI = m.coop || null; zombies = new Map(); document.body.classList.toggle('coop', coop()); $('downMsg').hidden = true;
+  $('bagL').textContent = coop() ? 'Health' : 'In bag'; $('banked').querySelector('small').textContent = coop() ? 'Score' : 'Banked';
+  $('timer').querySelector('small').textContent = MODE === 'escape' ? 'Bus leaves' : coop() ? 'Wave' : 'Closes in';
   THEME = m.theme || ''; CIRCLE = m.circle || null; OBST = m.obstacles || []; ICE = m.ice || null; SLIPPERY = !!m.slippery; keeper = null; skiers = [];
   sea = seaT = m.sea == null ? Infinity : m.sea; seaDir = 0; paintMap();
   curEv = null; bolts = new Map(); furrows = []; flash = 0; $('banner').hidden = true;
@@ -1678,7 +1729,8 @@ function startRound(m){
   for (const d of m.diggers) addDigger(d);
   me = diggers.get(myId);
   rings = []; floats = []; pops = []; dirt = [];
-  update.lastTl = undefined; inGame = true; show(null); chime(); document.body.classList.add('playing'); Music.start(spooky() ? 'haunted' : MAP);
+  update.lastTl = undefined; inGame = true; show(null); chime(); document.body.classList.add('playing'); Music.start(dark() ? 'haunted' : MAP);
+  if (coop()) setTimeout(() => showBanner(`Zombies: ${COOP_MODES[MODE]}`, MODE === 'escape' ? 'Dig up engine parts and carry them to the bus' : 'Dig up food and meds. Stick together!', 'zombies'), 400);
 }
 function addDigger(d){
   diggers.set(d.id, {id: d.id, name: d.name, col: d.col, bot: d.bot, npc: d.npc || 0, look: d.look || {}, lvl: d.lvl || 0, x: MUSEUM.x, y: MUSEUM.y + 140, tx: null, ty: null, dir: 0, tdir: 0,
@@ -1696,8 +1748,9 @@ function applySnap(m){
     }
     seaT = m.sea;
   }
-  for (const [id, x, y, dir, stun, immune, bag, banked, moving, power, fx] of m.d){
+  for (const [id, x, y, dir, stun, immune, bag, banked, moving, power, fx, hp, down] of m.d){
     const d = diggers.get(id); if (!d) continue;
+    d.hp = hp ?? -1; d.down = down || 0;
     d.stun = stun; d.immune = immune; d.bag = bag ? bag.split('').map(Number) : []; d.banked = banked;
     { const [hs, si] = String(power || '').split(':'); d.held = hs ? hs.split('') : []; d.sel = +si || 0; d.power = d.held[d.sel] || ''; } d.fx = {}; for (const [, k, n] of (fx || '').matchAll(/([a-z])(\d*)/g)) d.fx[k] = n ? +n : 1;
     if (d === me){ if (!d.seen){ d.x = x; d.y = y; d.dir = dir; d.seen = true; } continue; }
@@ -1714,6 +1767,13 @@ function applySnap(m){
   if (m.kp){ if (!keeper) keeper = {x: m.kp[0], y: m.kp[1], dir: m.kp[2]}; keeper.tx = m.kp[0]; keeper.ty = m.kp[1]; keeper.tdir = m.kp[2]; } else keeper = null;
   if (m.sk){ skiers = m.sk.map(([x, y], i) => { const o = skiers[i] || {x, y}; return {x: o.x, y: o.y, tx: x, ty: y, px: o.x}; }); } else skiers = [];
   for (const id of magpies.keys()) if (!live.has(id)) magpies.delete(id);
+  if (m.co) COOPI = m.co;
+  { const liveZ = new Set();
+    for (const [id, x, y, dir, hp, max, kind, stun] of (m.z || [])){
+      liveZ.add(id); let z = zombies.get(id);
+      if (!z){ z = {id, x, y, dir, step: Math.random()*6, flash: 0}; zombies.set(id, z); }
+      z.tx = x; z.ty = y; z.tdir = dir; z.hp = hp; z.max = max; z.kind = kind; z.stun = stun; }
+    for (const id of zombies.keys()) if (!liveZ.has(id)) zombies.delete(id); }
   const liveH = new Set();
   for (const [id, x, y, cs, hp, wait] of (m.hv || [])){
     liveH.add(id); let h = heavies.get(id);
@@ -1798,6 +1858,46 @@ function applyEvent(e){
     if (by === myId){ floatAt(MUSEUM.x, MUSEUM.y - 90, `Banked +${v}`, '#f0bd34', {big: true}); chime(); setTimeout(chime, 220); bumpEl('bankedN');
       burst(MUSEUM.x, MUSEUM.y - 40, Math.min(30, 8 + v/10 | 0), ['#f2c230', '#ffe58a', '#d9a514'], {kind: 'coin', speed: 160, up: 120, grav: 260, life: 1.1, size: 5}); }
     else { floatAt(MUSEUM.x, MUSEUM.y - 90, `${nameOf(by)} banked +${v}`, '#f4ecd4', {small: true}); chime(.25); }
+  } else if (k === 'wave'){
+    const [, n, count] = e; showBanner(`Wave ${n}${MODE === 'survive' ? ' of 5' : ''}`, `${count} zombies are coming. Stick together!`, 'zombies'); groan(1); setTimeout(() => groan(.8), 500); setTimeout(() => groan(.9), 1100);
+  } else if (k === 'wavedone'){
+    const [, n] = e; showBanner(`Wave ${n} cleared!`, MODE === 'survive' && n >= 5 ? 'You made it!' : 'Catch your breath. Fresh supplies are buried nearby', 'cleared');
+    [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => beep(f, .2, 'triangle', .09), i*110));
+  } else if (k === 'zhurt'){
+    const [, zid, by] = e, z = zombies.get(zid), a = diggers.get(by); if (a) a.swing = .25; if (!z) return;
+    z.flash = .25; const vol = by === myId ? 1 : near(z.x, z.y); beep(150, .1, 'square', .08*vol); noise(.08, 900, 2, .5*vol);
+    burst(z.x, z.y - 6, 5, ['#6fae3a', '#3d6b2a'], {speed: 90, life: .4, grav: 200, size: 3});
+    if (by === myId) effects.push({kind: 'pow', x: z.x, y: z.y - 30, t: 0, life: .45});
+  } else if (k === 'zdie'){
+    const [, zid, by, x, y, kc] = e, a = diggers.get(by); if (a) a.swing = .25; zombies.delete(zid);
+    const vol = by === myId ? 1 : near(x, y);
+    burst(x, y, kc === 2 ? 26 : 14, ['#6fae3a', '#4f7f2a', '#8a1c1c', '#3d6b2a'], {speed: 150, up: 60, life: .7, grav: 260, size: 4});
+    dirt.push(...Array.from({length: 6}, () => ({x, y, vx: (Math.random() - .5)*160, vy: (Math.random() - .5)*160, t: 0})));
+    beep(90, .25, 'sawtooth', .07*vol); noise(.2, 400, 1, .6*vol, 'lowpass');
+    if (by === myId){ effects.push({kind: 'pow', x, y: y - 30, t: 0, life: .5}); floatAt(x, y - 40, kc === 2 ? 'Brute down! +50' : '+10', kc === 2 ? '#ffd447' : '#c8f59a', {small: kc !== 2}); shake = Math.max(shake, kc === 2 ? .5 : .2); }
+  } else if (k === 'zhit'){
+    const [, zid, vid, hp] = e, v = diggers.get(vid), z = zombies.get(zid); if (z) z.lunge = .3;
+    if (!v) return;
+    burst(v.x, v.y - 8, 6, ['#c0392b', '#8a1c1c'], {speed: 80, life: .4, grav: 200, size: 3});
+    if (vid === myId){ shake = Math.max(shake, .45); hurtFlash = .5; beep(120, .18, 'sawtooth', .1); noise(.15, 600, 1, .7, 'lowpass'); const c = $('bagCard'); c.classList.remove('hurt'); void c.offsetWidth; c.classList.add('hurt'); buzz(60); }
+    else beep(140, .1, 'sawtooth', .05*near(v.x, v.y));
+  } else if (k === 'down'){
+    const d = diggers.get(e[1]); if (!d) return;
+    if (d === me){ $('downMsg').hidden = false; [330, 262, 196].forEach((f, i) => setTimeout(() => beep(f, .3, 'sawtooth', .09), i*200)); }
+    else { floatAt(d.x, d.y - 46, `${d.name} is down! Stand over them to help`, '#ff8a7a', {small: false}); beep(262, .3, 'triangle', .08); }
+  } else if (k === 'revived'){
+    const [, id, byTeam] = e, d = diggers.get(id); if (!d) return; d.down = 0;
+    if (d === me){ $('downMsg').hidden = true; floatAt(me.x, me.y - 50, byTeam ? 'Back on your feet!' : 'Reinforcements! Back up', '#c8f59a'); [392, 523, 659].forEach((f, i) => setTimeout(() => beep(f, .16, 'triangle', .09), i*90)); }
+    else floatAt(d.x, d.y - 46, `${d.name} is back up`, '#c8f59a', {small: true});
+    burst(d.x, d.y, 14, ['#c8f59a', '#ffffff'], {kind: 'star', speed: 110, life: .7, size: 5});
+  } else if (k === 'supply'){
+    const [, id, what, amt, name] = e, d = diggers.get(id); if (!d) return;
+    if (id === myId){ floatAt(me.x, me.y - 46, amt > 0 ? `${name}  +${amt} health` : `${name}: you're already fit`, '#7ee07e'); [659, 880].forEach((f, i) => setTimeout(() => beep(f, .14, 'sine', .08), i*90)); burst(me.x, me.y - 10, 10, ['#7ee07e', '#ffffff'], {kind: 'star', speed: 80, up: 40, life: .6, size: 4}); }
+  } else if (k === 'part'){
+    const [, n, need] = e; showBanner(n >= need ? 'The bus is fixed!' : `Bus part ${n} of ${need}`, n >= need ? 'Everybody on!' : `${need - n} more to go`, 'bus');
+    [523, 784, 1047].forEach((f, i) => setTimeout(() => beep(f, .18, 'square', .07), i*100));
+  } else if (k === 'groan'){
+    const z = zombies.get(e[1]); if (!z || !me) return; const v = near(z.x, z.y); if (v > .15 && (zSay -= 1) < 0){ zSay = 2; groan(v*.7); }
   } else if (k === 'whiff'){
     const d = diggers.get(e[1]); if (!d) return; d.swing = .25;
     if (d !== me) beep(300, .06, 'triangle', .04*near(d.x, d.y));
@@ -1859,7 +1959,8 @@ function applyEvent(e){
   } else if (k === 'hbank'){
     const [, hid, ids, share, name] = e; const who = String(ids).split(',').map(Number);
     heavies.delete(hid);
-    if (who.includes(myId)){ floatAt(MUSEUM.x, MUSEUM.y - 90, `${name}! Split +${share} each`, '#c9a6ff', {big: true}); chime(); setTimeout(chime, 220); setTimeout(chime, 440); }
+    if (MODE === 'escape'){}
+    else if (who.includes(myId)){ floatAt(MUSEUM.x, MUSEUM.y - 90, `${name}! Split +${share} each`, '#c9a6ff', {big: true}); chime(); setTimeout(chime, 220); setTimeout(chime, 440); }
     else floatAt(MUSEUM.x, MUSEUM.y - 90, `${who.map(nameOf).join(' & ')} banked a ${name}`, '#f4ecd4', {small: true});
   } else if (k === 'hhit'){
     const [, hid, by, hp] = e, h = heavies.get(hid); if (!h) return;
@@ -1962,7 +2063,11 @@ function endRound(m){
   inGame = false; document.body.classList.remove('playing'); Music.stop();
   const lost = me ? bagValue(me) : 0;
   const [wid, wname] = m.rank[0] || [];
-  $('endTitle').textContent = !m.rank.length || m.rank[0][3] === 0 ? 'Nobody banked a thing' : wid === myId ? 'You win!' : `${wname} wins`;
+  const co = m.coop;
+  $('endTitle').textContent = co ? (co.mode === 'escape' ? (co.won ? 'You escaped!' : co.parts >= 4 ? 'You escaped!' : 'The bus never left') : co.won ? 'You survived!' : co.mode === 'endless' ? `Overrun on wave ${co.wave}` : `Overrun on wave ${co.wave} of 5`)
+    : !m.rank.length || m.rank[0][3] === 0 ? 'Nobody banked a thing' : wid === myId ? 'You win!' : `${wname} wins`;
+  document.querySelector('#end .tag').textContent = co ? `Zombies: ${COOP_MODES[co.mode] || ''}` : 'The Museum is closed';
+  $('downMsg').hidden = true;
   $('endList').innerHTML = '';
   for (const [id, name, col, banked, bot] of m.rank){
     const li = document.createElement('li');
@@ -1971,10 +2076,12 @@ function endRound(m){
     const em = document.createElement('em'); em.textContent = banked; em.style.fontSize = '15px'; em.style.fontWeight = '800'; em.style.color = 'var(--ink)'; li.append(em);
     $('endList').append(li);
   }
-  $('endNote').textContent = lost ? `You were still carrying ${lost} when the doors locked. That’s gone.` : 'You banked everything before closing.';
+  $('endNote').textContent = co ? `${co.kills} zombies bonked` + (co.mode === 'escape' ? ` · ${co.parts} of 4 bus parts fitted` : ` · reached wave ${co.wave}`) + (co.won ? '. Winners get the full reward.' : '. Scores are kills, revives and supplies.')
+    : lost ? `You were still carrying ${lost} when the doors locked. That’s gone.` : 'You banked everything before closing.';
   $('reward').innerHTML = profile ? '<p class="note">Adding up your coins and XP&hellip;</p>' : '<p class="note">Playing as a guest, so nothing was saved. Sign in on the start screen to earn coins and XP.</p>';
   const w = diggers.get(wid);
-  endStage = makeStage((w && w.look && w.look.win) || 'confetti', w ? w.look : {}, w ? w.col : '#2d5f9e');
+  endStage = co && !co.won ? makeStage('confetti', me ? me.look : {}, '#3d5a22') : makeStage((w && w.look && w.look.win) || 'confetti', co && me ? me.look : w ? w.look : {}, co && me ? me.col : w ? w.col : '#2d5f9e');
+  if (co && !co.won){ zombies = new Map(); [262, 220, 175].forEach((f, i) => setTimeout(() => beep(f, .35, 'sawtooth', .08), i*260)); show('end'); return; }
   show('end');
   flourishSound(endStage.kind);
 }
@@ -2131,7 +2238,9 @@ function playerDig(){
   lockedId = target.id; thunk(); sendPos(true); send({t: 'dig', id: target.id});
 }
 function canBonkSomething(){
-  if (!me || inMuseumZone(me.x, me.y, 10)) return false;
+  if (!me) return false;
+  if (coop()){ for (const z of zombies.values()){ const dd = Math.hypot(z.x - me.x, z.y - me.y); if (dd > 60) continue; let da = Math.atan2(z.y - me.y, z.x - me.x) - me.dir; da = Math.atan2(Math.sin(da), Math.cos(da)); if (Math.abs(da) < 1.5 || dd < 30) return true; } return false; }
+  if (inMuseumZone(me.x, me.y, 10)) return false;
   for (const g of magpies.values()) if (!g.stun && g.alt < 30 && Math.hypot(g.x-me.x, g.y-me.y) < 44) return true;
   for (const h of heavies.values()) if (!h.carriers.includes(myId) && Math.hypot(h.x-me.x, h.y-me.y) < 50) return true;
   for (const o of diggers.values()){
@@ -2143,7 +2252,7 @@ function canBonkSomething(){
   return false;
 }
 function playerBonk(){
-  if (!inGame || !me || me.stun || me.fx.z || carrying()) return;
+  if (!inGame || !me || me.stun || me.down || me.fx.z || carrying()) return;
   press(bonkBtn); me.swing = .25; sendPos(true); send({t: 'bonk'});
 }
 function sendPos(force){
@@ -2197,6 +2306,12 @@ function update(dt){
     const sweep = d.dir + Math.sin(t*5 + d.id)*.55;
     d.coil = {x: d.x + Math.cos(sweep)*30, y: d.y + Math.sin(sweep)*30};
   }
+  for (const z of zombies.values()){
+    const ox = z.x, oy = z.y; z.x += (z.tx - z.x)*k; z.y += (z.ty - z.y)*k;
+    let a = z.tdir - z.dir; a = Math.atan2(Math.sin(a), Math.cos(a)); z.dir += a*k;
+    z.step += Math.hypot(z.x - ox, z.y - oy)*.12; z.flash = Math.max(0, z.flash - dt); z.lunge = Math.max(0, (z.lunge || 0) - dt);
+  }
+  hurtFlash = Math.max(0, hurtFlash - dt*1.5);
   for (const g of magpies.values()){
     g.x += (g.tx - g.x)*k; g.y += (g.ty - g.y)*k; g.alt += (g.talt - g.alt)*k;
     let a = g.tdir - g.dir; a = Math.atan2(Math.sin(a), Math.cos(a)); g.dir += a*k;
@@ -2292,7 +2407,10 @@ function update(dt){
   const pk2 = me.power + me.sel + slots; if (P && powBtn.dataset.k !== pk2){ powBtn.dataset.k = pk2; powBtn.innerHTML = `${slots > 1 ? `<span class="slotTag">${'ABC'[me.sel] || 'A'}</span>` : ''}${P.short}<small>TAP TO USE</small>`; powBtn.style.background = ''; }
   const FX_LABEL = {z: 'Tired arm', x: 'Stinky! Detector scrambled'};
   const evChip = curEv ? `<span style="--c:#ffd447">${curEv.kind === 'fog' && MAP === 'mountain' ? 'Blizzard' : curEv.kind === 'fog' && MAP === 'haunted' ? 'Mist' : EV_NAME[curEv.kind]} ${Math.max(0, Math.ceil(curEv.dur - (t - curEv.start)))}s</span>` : '';
-  const fxHtml = evChip + Object.keys(me.fx).filter(k => POWERS[k] || FX_LABEL[k]).map(k => `<span style="--c:${POW_COL[k]}">${FX_LABEL[k] || POWERS[k].name}${k === 'p' ? '' : k === 'l' ? ' \u00D7' + me.fx[k] : ' ' + me.fx[k] + 's'}</span>`).join('');
+  let coChip = '';
+  if (coop() && COOPI){ const [w, left, brk, parts, need, kills] = COOPI;
+    coChip = (MODE === 'escape' ? `<span style="--c:#e0a458">Bus parts ${parts}/${need}</span>` : brk ? `<span style="--c:#c8f59a">Next wave in ${brk}s</span>` : w ? `<span style="--c:#8fd16a">${left} zombie${left === 1 ? '' : 's'} left</span>` : '') + `<span style="--c:#ff8a7a">Team kills ${kills}</span>`; }
+  const fxHtml = coChip + evChip + Object.keys(me.fx).filter(k => POWERS[k] || FX_LABEL[k]).map(k => `<span style="--c:${POW_COL[k]}">${FX_LABEL[k] || POWERS[k].name}${k === 'p' ? '' : k === 'l' ? ' \u00D7' + me.fx[k] : ' ' + me.fx[k] + 's'}</span>`).join('');
   if ($('fx').innerHTML !== fxHtml) $('fx').innerHTML = fxHtml;
   const inShop = inMuseumZone(me.x, me.y, 20);
   $('shop').hidden = !inShop;
@@ -2300,13 +2418,22 @@ function update(dt){
     $('shopPts').textContent = `${me.banked} pts`;
     for (const pk of ['p', 's', 'd']) $('buy-' + pk).disabled = me.banked < POWERS[pk].cost || (pk === 'p' && !!me.fx.p);
   }
-  const bv = bagValue(me); if (+$('bagN').textContent !== bv){ $('bagN').textContent = bv; if (bv) bumpEl('bagN'); }
+  if (coop()){
+    const hp = Math.max(0, me.hp ?? 100); if ($('bagN').textContent !== String(hp)) $('bagN').textContent = hp;
+    $('hpFill').style.width = hp + '%'; $('hpFill').style.background = hp > 60 ? '#7ee07e' : hp > 30 ? '#ffd447' : '#ff6b5b';
+    if (hp > 0 && hp <= 30 && !me.down && (update.beatT = (update.beatT || 0) - dt) <= 0){ update.beatT = .9; beep(70, .12, 'sine', .14); setTimeout(() => beep(60, .12, 'sine', .1), 160); }
+    if (!me.down && !$('downMsg').hidden) $('downMsg').hidden = true;
+    if (me.down && $('downMsg').hidden) $('downMsg').hidden = false;
+  } else { const bv = bagValue(me); if (+$('bagN').textContent !== bv){ $('bagN').textContent = bv; if (bv) bumpEl('bagN'); } }
   $('sigBar').style.width = (signal*100).toFixed(0) + '%';
   $('sigBar').style.background = signal > .5 && nearB && detMode === 'classic' ? TYPES[nearB.ti].ring : '#cfe7a8';
   const tl = Math.ceil(timeLeft);
+  if (coop() && MODE !== 'escape'){ const w = COOPI ? COOPI[0] : 0, txt = MODE === 'survive' ? `${Math.max(1, w)}/5` : String(Math.max(1, w)); if ($('timeN').textContent !== txt) $('timeN').textContent = txt; $('timer').classList.remove('low'); }
+  else {
   $('timeN').textContent = `${Math.floor(tl/60)}:${String(tl%60).padStart(2, '0')}`;
   $('timer').classList.toggle('low', timeLeft <= DUSK);
-  if (timeLeft <= DUSK && (update.lastTl ?? 999) > DUSK){ [392, 392].forEach((f, i) => setTimeout(() => beep(f, .6, 'triangle', .12), i*500)); floatAt(me.x, me.y - 60, '30 seconds to closing!', '#ffd447'); }
+  if (timeLeft <= DUSK && (update.lastTl ?? 999) > DUSK){ [392, 392].forEach((f, i) => setTimeout(() => beep(f, .6, 'triangle', .12), i*500)); floatAt(me.x, me.y - 60, MODE === 'escape' ? '30 seconds until the bus leaves!' : '30 seconds to closing!', '#ffd447'); }
+  }
   if (timeLeft <= 5 && Math.ceil(timeLeft) < Math.ceil(update.lastTl ?? 999)) beep(880, .12, 'square', .06);
   update.lastTl = timeLeft;
   if ((update.boardT = (update.boardT || 0) - dt) <= 0){
@@ -2804,8 +2931,61 @@ function drawFigure(g, look, col, o){
   }
   g.restore();
 }
+function drawBus(){
+  const bx = MUSEUM.x - MUSEUM.w/2 - 70, by = MUSEUM.y + 10, parts = COOPI ? COOPI[3] : 0, need = COOPI ? COOPI[4] : 4;
+  ctx.save(); ctx.translate(bx, by);
+  ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.fillRect(-28, -54, 64, 118);
+  ctx.fillStyle = '#e8b21a'; ctx.beginPath(); ctx.roundRect(-32, -60, 60, 116, 8); ctx.fill();
+  ctx.fillStyle = '#c4900c'; ctx.fillRect(-32, -8, 60, 6);
+  ctx.fillStyle = '#9fd8ef'; for (let i = 0; i < 4; i++) ctx.fillRect(-26, -50 + i*26, 48, 16);
+  ctx.fillStyle = '#2b2b2b'; ctx.fillRect(-36, -44, 6, 18); ctx.fillRect(24, -44, 6, 18); ctx.fillRect(-36, 26, 6, 18); ctx.fillRect(24, 26, 6, 18);
+  if (parts < need){ ctx.fillStyle = 'rgba(80,80,80,.8)'; ctx.beginPath(); ctx.arc(-2 + Math.sin(t*2)*4, 64 + (t*20 % 20), 6 + (t*8 % 6), 0, 7); ctx.fill(); }
+  ctx.restore();
+  ctx.font = '800 12px Nunito, sans-serif'; ctx.textAlign = 'center'; ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(20,26,12,.85)';
+  const lab = parts >= need ? 'BUS FIXED!' : `BUS ${parts}/${need} PARTS`; ctx.strokeText(lab, bx, by - 72); ctx.fillStyle = '#ffd447'; ctx.fillText(lab, bx, by - 72);
+}
+// ---------- zombies: shambling, arms out, green and grotty ----------
+const Z_SHIRT = ['#5a6b7a', '#7a5a4a', '#4a5a3a', '#6a4a6a', '#7a6a4a'];
+function drawZombie(z){
+  const big = z.kind === 2, thin = z.kind === 1, sc = big ? 1.8 : thin ? 1.15 : 1.3, sw = Math.sin(z.step)*(thin ? 4 : 2.5);
+  ctx.save(); ctx.translate(z.x, z.y);
+  ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.beginPath(); ctx.ellipse(3, 6, 16*sc, 11*sc, 0, 0, 7); ctx.fill();
+  ctx.rotate(z.dir + Math.sin(z.step*.5)*.12); ctx.scale(sc, sc);
+  const skin = z.flash > 0 ? '#ffffff' : big ? '#78a848' : thin ? '#a8d86a' : '#92c458', shirt = z.flash > 0 ? '#ffffff' : Z_SHIRT[z.id % Z_SHIRT.length];
+  // feet shuffling
+  ctx.fillStyle = '#3a3026'; ctx.beginPath(); ctx.ellipse(-2 + sw, -7, 5, 3.5, 0, 0, 7); ctx.ellipse(-2 - sw, 7, 5, 3.5, 0, 0, 7); ctx.fill();
+  // arms reaching forward
+  const reach = 20 + (z.lunge > 0 ? 6 : 0);
+  ctx.strokeStyle = shirt; ctx.lineWidth = 6; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(2, -10); ctx.lineTo(reach - 4, -9 + sw*.6); ctx.moveTo(2, 10); ctx.lineTo(reach - 6, 9 - sw*.6); ctx.stroke();
+  ctx.fillStyle = skin; ctx.beginPath(); ctx.arc(reach - 2, -9 + sw*.6, 3.6, 0, 7); ctx.arc(reach - 4, 9 - sw*.6, 3.6, 0, 7); ctx.fill();
+  // body: a torn shirt
+  ctx.fillStyle = shirt; ctx.beginPath(); ctx.ellipse(0, 0, 11, 13, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.beginPath(); ctx.moveTo(-6, -9); ctx.lineTo(-2, -4); ctx.lineTo(-7, -1); ctx.lineTo(-3, 4); ctx.lineTo(-8, 8); ctx.lineTo(-11, 0); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = 'rgba(138,28,28,.55)'; ctx.beginPath(); ctx.arc(4, 5, 2.5, 0, 7); ctx.arc(-4, -6, 1.8, 0, 7); ctx.fill();
+  // head
+  ctx.fillStyle = skin; ctx.beginPath(); ctx.arc(3, 0, 7.5, 0, 7); ctx.fill();
+  ctx.fillStyle = 'rgba(0,0,0,.18)'; ctx.beginPath(); ctx.arc(1, -2, 2.5, 0, 7); ctx.fill();
+  if (!thin){ ctx.fillStyle = big ? '#2a2a20' : '#4a3a2a'; ctx.beginPath(); ctx.arc(0, 0, 6, Math.PI*.6, Math.PI*1.4); ctx.fill(); } // a few tufts of hair
+  ctx.fillStyle = '#ff3b2f'; ctx.shadowColor = '#ff3b2f'; ctx.shadowBlur = 6; ctx.beginPath(); ctx.arc(8, -2.6, 1.6, 0, 7); ctx.arc(8, 2.6, 1.6, 0, 7); ctx.fill(); ctx.shadowBlur = 0;
+  ctx.restore();
+  if (z.stun){ ctx.font = '800 11px Nunito, sans-serif'; ctx.fillStyle = '#c8f59a'; for (let i = 0; i < 2; i++){ const a = t*7 + i*3.1; ctx.fillText('✦', z.x + Math.cos(a)*12, z.y - 22*sc + Math.sin(a)*4); } }
+  if (z.max > 1 && z.hp < z.max){ const w = 26*sc, k = Math.max(0, z.hp/z.max); ctx.fillStyle = 'rgba(20,26,12,.85)'; ctx.fillRect(z.x - w/2 - 1, z.y - 24*sc - 1, w + 2, 6); ctx.fillStyle = '#8fd16a'; ctx.fillRect(z.x - w/2, z.y - 24*sc, w*k, 4); }
+  if (big){ ctx.font = '800 10px Nunito, sans-serif'; ctx.textAlign = 'center'; ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(20,26,12,.85)'; ctx.strokeText('BRUTE', z.x, z.y - 32*sc); ctx.fillStyle = '#ff8a7a'; ctx.fillText('BRUTE', z.x, z.y - 32*sc); }
+}
 function drawDigger(d){
   const wob = d.moving ? Math.sin(t*14 + d.id)*2 : 0;
+  if (d.down){ // knocked down: lying flat, with a ring that fills as a team-mate picks them up
+    ctx.save(); ctx.translate(d.x, d.y); ctx.rotate(.9); ctx.globalAlpha = .8; ctx.scale(1, .7);
+    drawFigure(ctx, d.look, d.col, {dir: Math.PI/2, cx: -26, cy: 8, bag: [], swing: 0, wob: 0}); ctx.restore(); ctx.globalAlpha = 1;
+    const p = Math.max(0, (d.down - 1)/99), pulse = .5 + Math.sin(t*5)*.5;
+    ctx.strokeStyle = `rgba(255,107,91,${.4 + pulse*.4})`; ctx.lineWidth = 3; ctx.setLineDash([5, 5]); ctx.beginPath(); ctx.arc(d.x, d.y, 34, 0, 7); ctx.stroke(); ctx.setLineDash([]);
+    if (p > 0){ ctx.strokeStyle = '#c8f59a'; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(d.x, d.y, 34, -Math.PI/2, -Math.PI/2 + p*Math.PI*2); ctx.stroke(); }
+    ctx.font = '800 11px Nunito, sans-serif'; ctx.textAlign = 'center'; ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(20,26,12,.85)';
+    const lab = d === me ? 'DOWN' : p > 0 ? 'HELPING UP…' : 'HELP!'; ctx.strokeText(lab, d.x, d.y - 42); ctx.fillStyle = '#ff8a7a'; ctx.fillText(lab, d.x, d.y - 42);
+    return;
+  }
+  if (coop() && d.hp >= 0 && d !== me && d.hp < 100){ const k = d.hp/100; ctx.fillStyle = 'rgba(20,26,12,.85)'; ctx.fillRect(d.x - 15, d.y - 34, 30, 5); ctx.fillStyle = k > .6 ? '#7ee07e' : k > .3 ? '#ffd447' : '#ff6b5b'; ctx.fillRect(d.x - 14, d.y - 33, 28*k, 3); }
   ctx.save(); ctx.translate(d.x, d.y);
   if (d.immune && !d.stun) ctx.globalAlpha = .55 + Math.sin(t*30)*.3;
   drawFigure(ctx, d.look, d.col, {dir: d.dir, cx: d.coil.x - d.x, cy: d.coil.y - d.y, bag: d.bag, swing: d.swing, wob});
@@ -3004,6 +3184,7 @@ function draw(){
     ctx.fillStyle = detMode !== 'classic' && target.prog > 0 ? TYPES[target.ti].ring : '#f0bd34'; ctx.fillRect(target.x-21, target.y-29, 42*k, 5);
   }
   drawMuseum();
+  if (MODE === 'escape') drawBus();
   { const fxp = MUSEUM.x + MUSEUM.w/2 - 14, fyp = MUSEUM.y - MUSEUM.h/2 - 20; // flag on the roof
     ctx.strokeStyle = '#5a4630'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(fxp, fyp + 14); ctx.lineTo(fxp, fyp - 34); ctx.stroke();
     ctx.fillStyle = '#c9632e'; ctx.beginPath(); ctx.moveTo(fxp, fyp - 34);
@@ -3043,7 +3224,7 @@ function draw(){
     ctx.fillStyle = '#9b7bd1'; ctx.beginPath(); ctx.ellipse(h.x - 3, h.y - 3, 14, 10, 0, 0, 7); ctx.fill();
     ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(h.x - 5, h.y - 5, 7, Math.PI, Math.PI*1.6); ctx.stroke();
     ctx.font = '800 11px Nunito, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    const lab = `${h.name} \u00B7 300 \u00B7 ${h.carriers.length}/2`;
+    const lab = MODE === 'escape' ? `${h.name} \u00B7 carry to the bus \u00B7 ${h.carriers.length}/2` : `${h.name} \u00B7 300 \u00B7 ${h.carriers.length}/2`;
     ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(20,26,12,.85)'; ctx.strokeText(lab, h.x, h.y - 36); ctx.fillStyle = '#e4d2ff'; ctx.fillText(lab, h.x, h.y - 36);
     // health bar: 8 bonks smashes it
     const hpk = Math.max(0, (h.hp ?? 8)/8);
@@ -3204,6 +3385,10 @@ function draw(){
       ctx.save(); ctx.translate(d.pet.x, d.pet.y); drawPet(ctx, d.look.pet, d.pet.dir, d.pet.moving ? t : 0); ctx.restore(); }
     if (me && inGame){ ctx.strokeStyle = `rgba(255,255,255,${.28 + Math.sin(t*3)*.1})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(me.x + 2, me.y + 5, 22, 15, 0, 0, 7); ctx.stroke(); }
     for (const p of sparks) if (p.kind === 'puff'){ const k = p.t/p.life; ctx.globalAlpha = .55*(1 - k); ctx.fillStyle = p.col; ctx.beginPath(); ctx.arc(p.x, p.y, p.size*(1 + k*1.5), 0, 7); ctx.fill(); } ctx.globalAlpha = 1;
+    if (coop()){ // zombies and people share the same depth order
+      const all = [...[...diggers.values()].filter(d => d.seen).map(d => [d.y, d, 0]), ...[...zombies.values()].map(z => [z.y, z, 1])].sort((a, b) => a[0] - b[0]);
+      for (const [, o, isZ] of all) isZ ? drawZombie(o) : drawDigger(o);
+    } else
     [...diggers.values()].filter(d => d.seen).sort((a, b) => a.y - b.y).forEach(drawDigger);
     for (const g of magpies.values()) drawMagpie(g);
   }
@@ -3223,14 +3408,16 @@ function draw(){
     ctx.restore(); ctx.globalAlpha = 1;
   }
   ctx.restore();
-  if (inGame && spooky() && me){
+  if (inGame && dark() && me){
     const c = night.c || (night.c = document.createElement('canvas')); if (c.width !== vw || c.height !== vh){ c.width = vw; c.height = vh; }
-    const g = c.getContext('2d'); g.globalCompositeOperation = 'source-over'; g.clearRect(0, 0, vw, vh); g.fillStyle = 'rgba(10,6,28,.72)'; g.fillRect(0, 0, vw, vh);
+    const g = c.getContext('2d'); g.globalCompositeOperation = 'source-over'; g.clearRect(0, 0, vw, vh); g.fillStyle = coop() ? 'rgba(8,22,12,.68)' : 'rgba(10,6,28,.72)'; g.fillRect(0, 0, vw, vh);
     g.globalCompositeOperation = 'destination-out';
     const hole = (wx, wy, r, k) => { const sx = (wx - cx)*scale + shx, sy = (wy - cy)*scale + shy, rr = r*scale; if (sx < -rr || sy < -rr || sx > vw + rr || sy > vh + rr) return; const gr = g.createRadialGradient(sx, sy, rr*.25, sx, sy, rr); gr.addColorStop(0, `rgba(0,0,0,${k})`); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(sx - rr, sy - rr, rr*2, rr*2); };
     hole(me.x, me.y, 290 + Math.sin(t*2)*6, 1); hole(MUSEUM.x, MUSEUM.y, 260, .9);
-    for (const d of diggers.values()) if (d !== me && d.seen) hole(d.x, d.y, 70, .6); // everyone carries a torch
+    for (const d of diggers.values()) if (d !== me && d.seen) hole(d.x, d.y, coop() ? 110 : 70, .6); // everyone carries a torch
     ctx.drawImage(c, 0, 0, vw, vh);
+    if (hurtFlash > 0){ ctx.fillStyle = `rgba(200,20,20,${hurtFlash*.35})`; ctx.fillRect(0, 0, vw, vh); }
+    if (coop() && me && me.hp > 0 && me.hp <= 30 && !me.down){ const g2 = ctx.createRadialGradient(vw/2, vh/2, Math.min(vw, vh)*.3, vw/2, vh/2, Math.max(vw, vh)*.7); g2.addColorStop(0, 'rgba(160,0,0,0)'); g2.addColorStop(1, `rgba(160,0,0,${.35 + Math.sin(t*6)*.12})`); ctx.fillStyle = g2; ctx.fillRect(0, 0, vw, vh); }
   }
   if (inGame){
     // closing time: the light goes golden then dusky over the last 30 seconds
@@ -3244,6 +3431,9 @@ function draw(){
   // arrows to off-screen crates, and heavy finds waiting for carriers
   const targets = [];
   for (const c of crates.values()) targets.push({x: c.x, y: c.y, col: '#ffd447', label: m => `CRATE ${m}m`});
+  if (coop()){ for (const d of diggers.values()) if (d.down && d !== me) targets.push({x: d.x, y: d.y, col: '#ff6b5b', label: m => `${d.name.toUpperCase()} DOWN ${m}m`});
+    if (MODE === 'escape'){ for (const h of heavies.values()) targets.push({x: h.x, y: h.y, col: '#e0a458', label: m => `PART ${m}m`});
+      for (const b of buried.values()) if (b.ti === 5) targets.push({x: b.x, y: b.y, col: '#e0a458', label: m => `DIG PART ${m}m`}); } }
   if (curEv && curEv.kind === 'club') targets.push({x: curEv.data.x, y: curEv.data.y, col: '#ffb347', label: m => `CLUB ${m}m`});
   if (tut && tut.step < TUT.length && TUT[tut.step].arrow){ const a = TUT[tut.step].arrow(); if (a) targets.push({...a, col: '#f0bd34'}); }
   if (curEv && curEv.kind === 'icecream' && !(me && me.fx.w)) targets.push({x: curEv.data.x, y: curEv.data.y, col: '#ffb3d9', label: m => `ICE CREAM ${m}m`});
