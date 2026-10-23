@@ -111,6 +111,7 @@ const EVENTS = {
 const KEEPER_SPEED = 125, AVALANCHE_W = 560, AVALANCHE_SPEED = 280, SKIER_SPEED = 300;
 const CLUB = ['Ken', 'Pat', 'Doreen', 'Clive', 'Mags'];
 const BONK_REACH = 48, BONK_ARC = 1.3, BONK_REWIND = 0.15; // px, radians either side of facing, seconds
+const clubFind = () => { const r = Math.random(); return r < .12 ? 3 : r < .5 ? 2 : 1; }; // silver and gold mostly
 const BOLT_R = 46, TRACTOR_SPEED = 170;
 const waveOffset = t => t < 2 ? 0 : t < 4 ? (t - 2) / 2 * 330 : t < 7 ? 330 : t < 11 ? (11 - t) / 4 * 330 : 0;
 const ROUND = Number(process.env.ROUND) || 180, DUSK = 30, TICK_MS = 50;
@@ -278,8 +279,10 @@ class Room {
     return (this.map.obstacles || []).some(ob => Math.hypot(ob.x - x, ob.y - y) < ob.r + 20 + pad);
   }
   onIce(o) { const I = this.map.ice; return !!I && ((o.x - I.x) / I.rx) ** 2 + ((o.y - I.y) / I.ry) ** 2 < 1; }
-  setMap(id) { if (mapOpen(id) && this.state !== 'play') { this.mapId = id; this.lobbyMsg(); } }
+  setMap(id) { if (mapOpen(id) && id !== 'haunted' && this.state !== 'play') { this.mapId = id; this.lobbyMsg(); } }
   start() {
+    // Farmer's Field on Halloween night is the graveyard
+    this.choice = this.mapId; if (this.mapId === 'field' && this.theme === 'halloween' && seasonOn('halloween')) this.mapId = 'haunted';
     this.map = MAPS[this.mapId]; this.M = this.map.museum;
     this.resetWorld();
     const humans = [...this.clients.values()];
@@ -327,6 +330,7 @@ class Room {
   }
   end() {
     this.state = 'end'; this.autoT = null;
+    if (this.choice) this.mapId = this.choice; // back to what the host picked (the graveyard is Farmer's Field at Halloween)
     const ranked = this.diggers.filter(d => !d.npc).sort((a, b) => b.banked - a.banked);
     this.broadcast({ t: 'end', rank: ranked.map(d => [d.id, d.name, d.col, d.banked, d.isBot ? 1 : 0]) });
     // coins and XP go onto each signed-in player's account
@@ -475,10 +479,12 @@ class Room {
       names.forEach((n, i) => {
         const d = this.makeDigger(2000 + this.uid++, 'Club ' + n, '#7d8a6a', true, 0, { hat: pick(['bucket', 'cap', 'deer']), jacket: 'auto', boots: 'green', pack: 'canvas', pet: 'none', trail: 'none', det: 'retro', spade: 'old', win: 'confetti' });
         d.npc = true; d.lvl = 0; d.ai.area = ev.data; d.ai.digRate = 2.4;
+        for (let k = 0; k < 2; k++){ const ti = clubFind(); d.bag.push({ ti, name: this.itemName(ti) }); } // they turn up with something worth robbing
         d.x = c.x < WORLD / 2 ? 60 : WORLD - 60; d.y = c.y - 60 + i * 40;
         this.diggers.push(d);
         this.ev.push(['join', { id: d.id, name: d.name, col: d.col, bot: 1, npc: 1, look: d.look, lvl: 0 }]);
       });
+      for (let k = 0; k < 10; k++) this.clubBury(ev.data); // they've found a good spot
     }
     if (kind === 'dog') { // two dogs, in through the park gate, after whoever's carrying the most
       const C = this.map.circle || { x: WORLD / 2, y: WORLD / 2, r: 800 };
@@ -627,8 +633,22 @@ class Room {
     if (ev.t >= ev.dur) this.endEvent();
   }
   // detecting club members: dig out their patch, never bank, leave when the coach does
+  // a find buried somewhere inside the club's patch, better than usual
+  clubBury(A) {
+    for (let tries = 0; tries < 30; tries++) {
+      const a = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random()) * A.r * .9, x = A.x + Math.cos(a) * r, y = A.y + Math.sin(a) * r;
+      if (x < 60 || y < this.map.top || x > WORLD - 60 || y > WORLD - 60 || this.inMuseum(x, y, 60) || this.underwater(y, 30) || this.blocked(x, y) || this.inHole(x, y, 30)) continue;
+      const ti = clubFind(), b = { id: this.uid++, x, y, ti, name: this.itemName(ti), prog: 0 };
+      this.buried.push(b); this.ev.push(['spawn', b.id, Math.round(x), Math.round(y), ti, b.name, 0]); return;
+    }
+  }
   clubThink(b, dt) {
     const ai = b.ai, A = ai.area;
+    // the patch keeps giving while the club is here
+    if (this.event && this.event.kind === 'club' && (this.event.refill = (this.event.refill || 0) - dt / 4) <= 0) {
+      this.event.refill = 1;
+      if (this.buried.filter(it => !it.owner && Math.hypot(it.x - A.x, it.y - A.y) < A.r).length < 6) this.clubBury(A);
+    }
     if (!ai.item || !this.buried.includes(ai.item) || this.underwater(ai.item.y, 4)) {
       ai.item = null; let bd = 1e9;
       for (const it of this.buried) {
@@ -1120,7 +1140,7 @@ class Room {
       const before = this.autoT == null ? null : Math.ceil(this.autoT);
       if (this.autoT == null) this.autoT = this.state === 'end' ? 15 : 10;
       this.autoT -= dt;
-      if (this.autoT <= 0){ this.autoT = null; this.mapId = pick(openMaps()); this.theme = seasonOn('halloween') && Math.random() < .5 ? 'halloween' : ''; this.start(); return; }
+      if (this.autoT <= 0){ this.autoT = null; this.mapId = pick(openMaps().filter(m => m !== 'haunted')); this.theme = seasonOn('halloween') && Math.random() < .5 ? 'halloween' : ''; this.start(); return; }
       if (Math.ceil(this.autoT) !== before) this.lobbyMsg();
     }
     if (this.state !== 'play') return;
@@ -1390,7 +1410,7 @@ function onConnection(ws) {
         if (room.clients.size >= MAX_PLAYERS) { room = null; joining = false; ws.send(JSON.stringify({ t: 'error', msg: 'That game is full (8 players).' })); return; }
       } else if (msg.quick) { // the busiest open Quick Play game, or a fresh one
         room = [...rooms.values()].filter(r => r.public && r.clients.size < MAX_PLAYERS).sort((a, b) => b.clients.size - a.clients.size)[0];
-        if (!room){ code = newCode(); room = new Room(code, { public: true }); room.mapId = pick(openMaps()); rooms.set(code, room); }
+        if (!room){ code = newCode(); room = new Room(code, { public: true }); room.mapId = pick(openMaps().filter(m => m !== 'haunted')); rooms.set(code, room); }
       } else if (msg.tutorial) {
         code = newCode(); room = new Room(code, { tutorial: true }); rooms.set(code, room);
       } else {

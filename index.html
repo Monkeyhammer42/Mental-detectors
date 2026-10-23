@@ -195,22 +195,33 @@ canvas.stage{width:100%;height:auto;border-radius:12px;display:block;margin-bott
 #tide{position:absolute;top:calc(60px + env(safe-area-inset-top,0px));left:calc(168px + env(safe-area-inset-left,0px));
   background:var(--hud);border-radius:8px;padding:3px 9px;font-size:11px;font-weight:800;letter-spacing:.06em;pointer-events:none;color:#9fd8ef}
 #tide.in{color:#ffb38a}
-#banner{position:absolute;z-index:2;top:calc(196px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);width:max-content;max-width:calc(100% - 32px);
+#evBan{position:absolute;z-index:5;left:0;top:calc(80px + env(safe-area-inset-top,0px));width:100%;height:130px;pointer-events:none}
+#banner{position:absolute;z-index:-1;opacity:0;top:calc(196px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);width:max-content;max-width:calc(100% - 32px);
   background:rgba(24,30,16,.9);border:2px solid var(--gold);border-radius:14px;padding:10px 16px;text-align:center;pointer-events:none;animation:pop .45s ease}
 #banner b{display:block;font:400 26px var(--display);color:var(--gold);line-height:1.1}
 #banner span{display:block;font-size:13px;font-weight:800;margin-top:3px;color:var(--paper)}
 #codeBox,#pickName{z-index:5}
 #achv{z-index:7}
+.setHead .setBack{width:auto;margin:0 8px 0 -6px;padding:0 10px;background:none;color:#3f5a2a;font:400 30px var(--body);line-height:1;box-shadow:none}
+.setHead{justify-content:flex-start!important}
+.panel button.setNav{display:flex;justify-content:space-between;align-items:center;background:#ece3c9;color:var(--ink);font:800 15px var(--body);letter-spacing:0;padding:12px 14px;margin:0 0 8px;box-shadow:none;text-align:left}
+.panel button.setNav small{display:block;font:600 11px var(--body);color:#6d5f38;margin-top:2px}
+.panel button.setNav i{font-style:normal;font-size:22px;color:#8a7d5a}
 .slotBox{display:flex;align-items:center;gap:10px;background:#ece3c9;border-radius:12px;padding:8px 10px;margin:0 0 10px}
 .slotBox>div{flex:1}.slotBox b{display:block;font-size:13px}
 .slotBox small{display:block;font-size:11px;color:#6d5f38}
 #slotPips{display:flex;gap:4px;margin:3px 0}#slotPips i{width:18px;height:10px;border-radius:3px;border:2px solid #3f5a2a}#slotPips i.on{background:#3f5a2a}
 .panel .slotBox button{width:auto;margin:0;padding:8px 10px;font-size:13px}
-#powSlots{position:absolute;display:flex;flex-direction:column;gap:6px;right:calc(108px + env(safe-area-inset-right,0px));bottom:calc(150px + env(safe-area-inset-bottom,0px))}
-#game.left #powSlots,#game.split.swap #powSlots{right:auto;left:calc(108px + env(safe-area-inset-left,0px))}
-#game.high #powSlots{bottom:calc(274px + env(safe-area-inset-bottom,0px))}
-#powSlots button{width:52px;height:30px;border-radius:9px;border:2px solid rgba(255,255,255,.6);background:rgba(24,30,16,.82);color:var(--paper);font:400 10px var(--display);padding:0}
+/* A/B/C slots stack straight above the powerup button, wherever the layout puts it */
+#powSlots{position:absolute;display:flex;flex-direction:column-reverse;gap:5px;right:calc(32px + env(safe-area-inset-right,0px));bottom:calc(224px + env(safe-area-inset-bottom,0px))}
+#game.left #powSlots,#game.split.swap #powSlots{right:auto;left:calc(32px + env(safe-area-inset-left,0px))}
+#game.high #powSlots{bottom:calc(348px + env(safe-area-inset-bottom,0px))}
+#powSlots button{display:flex;align-items:center;gap:4px;width:66px;height:28px;border-radius:9px;border:2px solid rgba(255,255,255,.55);background:rgba(24,30,16,.85);color:var(--paper);font:400 9px var(--display);padding:0 5px;text-align:left;overflow:hidden;white-space:nowrap}
+#powSlots button b{flex:none;width:15px;height:15px;border-radius:50%;background:rgba(255,255,255,.2);display:grid;place-items:center;font:800 10px var(--body)}
+#powSlots button.on{background:#2c7fa0;border-color:#8fe6ff}
+#powSlots button.on b{background:#fff;color:#2c7fa0}
 #powSlots button.empty{border-style:dashed;opacity:.5}
+#powBtn .slotTag{position:absolute;top:-4px;left:-4px;width:20px;height:20px;border-radius:50%;background:#fff;color:#2c7fa0;font:800 11px var(--body);display:grid;place-items:center;box-shadow:0 2px 4px rgba(0,0,0,.3)}
 #lb{z-index:7}
 .panel button.lbOpen{margin-top:8px;font-size:14px;padding:10px}
 .daily{margin:10px 0 2px;background:#ece3c9;border-radius:12px;padding:8px 10px}
@@ -308,6 +319,7 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
   <div id="chatPop" hidden><div class="phr" id="chatPhr"></div><div class="emo" id="chatEmo"></div></div>
   <div id="coach" hidden><small><span id="coachStep">Step 1 of 6</span><button id="coachSkip">Skip tutorial</button></small><b id="coachTitle"></b><p id="coachText"></p><div class="dots" id="coachDots"></div><div class="row2" id="coachDone" hidden><button id="coachQuick">Quick play</button><button id="coachMenu" class="alt">Menu</button></div></div>
   <div id="banner" hidden aria-live="assertive"><b id="bannerT"></b><span id="bannerS"></span></div>
+  <canvas id="evBan" aria-hidden="true"></canvas>
   <div class="topright">
     <button id="setBtn" aria-label="Settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19.4 13a7.5 7.5 0 0 0 0-2l2-1.6-2-3.4-2.4 1a7.4 7.4 0 0 0-1.7-1L15 3.5h-4L10.7 6a7.4 7.4 0 0 0-1.7 1l-2.4-1-2 3.4 2 1.6a7.5 7.5 0 0 0 0 2l-2 1.6 2 3.4 2.4-1a7.4 7.4 0 0 0 1.7 1l.3 2.5h4l.3-2.5a7.4 7.4 0 0 0 1.7-1l2.4 1 2-3.4zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z" transform="translate(-1 0)"/></svg></button>
     <button id="chatBtn" aria-label="Quick chat"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4 4h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H10l-5 4v-4H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm3 6.5a1.5 1.5 0 1 0 0 .01zm5 0a1.5 1.5 0 1 0 0 .01zm5 0a1.5 1.5 0 1 0 0 .01z"/></svg></button>
@@ -363,31 +375,44 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 
   <div id="settings" class="overlay" hidden>
     <div class="panel">
-      <div class="setHead"><h2>Settings</h2></div>
-      <div id="setGame" hidden>
-        <label>Game code</label>
-        <div class="setRoom"><b id="setCode">----</b><button id="setShare" class="ghost" style="width:auto;margin:0;padding:8px 12px">Copy invite</button></div>
-        <p class="note" id="setShareNote" style="margin:0 0 8px"></p>
+      <div class="setHead"><button id="setBack" class="setBack" hidden aria-label="Back">&#8249;</button><h2 id="setTitle">Settings</h2></div>
+      <div class="setPage" data-page="main">
+        <div id="setGame" hidden>
+          <label>Game code</label>
+          <div class="setRoom"><b id="setCode">----</b><button id="setShare" class="ghost" style="width:auto;margin:0;padding:8px 12px">Copy invite</button></div>
+          <p class="note" id="setShareNote" style="margin:0 0 8px"></p>
+        </div>
+        <button class="setNav" data-go="sound"><span>Sound &amp; music<small id="navSound"></small></span><i>&#8250;</i></button>
+        <button class="setNav" data-go="controls"><span>Controls<small id="navControls"></small></span><i>&#8250;</i></button>
+        <button class="setNav" data-go="display"><span>Display<small id="navDisplay"></small></span><i>&#8250;</i></button>
+        <div class="row2" style="margin:10px 0 8px"><button class="ghost achOpen">Achievements</button><button class="ghost lbOpen">Leaderboards</button></div>
+        <button id="setDone" class="alt">Done</button>
+        <button id="setLeave" class="danger" hidden>Leave game</button>
       </div>
-      <label>Sound</label>
-      <div class="seg"><button data-snd="1">On</button><button data-snd="0">Off</button></div>
-      <label for="volIn">Sound effects volume</label>
-      <input id="volIn" type="range" min="0" max="100" step="5">
-      <label for="musIn">Music volume</label>
-      <input id="musIn" type="range" min="0" max="100" step="5">
-      <div id="vibWrap"><label>Vibrate</label>
-      <div class="seg"><button data-vib="1">On</button><button data-vib="0">Off</button></div></div>
-      <label>Dig &amp; bonk buttons</label>
-      <div class="seg" id="layoutSeg"></div>
-      <label>Detector</label>
-      <div class="seg three"><button data-det="classic">Classic</button><button data-det="zone">Zone</button><button data-det="pinpoint">Pinpoint</button></div>
-      <p class="note" style="margin:-6px 0 12px;font-size:12px">Zone marks a rough area to search, and you find the exact spot by the beeps. Pinpoint closes in on the find for you. In both you can hold DIG, and you don't see what it is until you start digging.</p>
-      <label>Scoreboard</label>
-      <div class="seg"><button data-board="full">Full</button><button data-board="mini">Just me</button></div>
-      <div class="row2" style="margin-bottom:8px"><button class="ghost achOpen">Achievements</button><button class="ghost lbOpen">Leaderboards</button></div>
-      <button id="setDone" class="alt">Done</button>
-      <button id="setLeave" class="danger" hidden>Leave game</button>
-      <p class="tiny">Tap the scoreboard in a game to shrink it.</p>
+      <div class="setPage" data-page="sound" hidden>
+        <label>Sound</label>
+        <div class="seg"><button data-snd="1">On</button><button data-snd="0">Off</button></div>
+        <label for="volIn">Sound effects volume</label>
+        <input id="volIn" type="range" min="0" max="100" step="5">
+        <label for="musIn">Music volume</label>
+        <input id="musIn" type="range" min="0" max="100" step="5">
+        <div id="vibWrap"><label>Vibrate</label>
+        <div class="seg"><button data-vib="1">On</button><button data-vib="0">Off</button></div></div>
+      </div>
+      <div class="setPage" data-page="controls" hidden>
+        <label>Dig &amp; bonk buttons</label>
+        <div class="seg" id="layoutSeg"></div>
+        <p class="note" style="margin:-6px 0 12px;font-size:12px">Your powerup button and its A, B, C slots move with these.</p>
+        <label>Detector</label>
+        <div class="seg three"><button data-det="classic">Classic</button><button data-det="zone">Zone</button><button data-det="pinpoint">Pinpoint</button></div>
+        <p class="note" style="margin:-6px 0 12px;font-size:12px">Zone marks a rough area to search, and you find the exact spot by the beeps. Pinpoint closes in on the find for you. In both you can hold DIG, and you don't see what it is until you start digging.</p>
+      </div>
+      <div class="setPage" data-page="display" hidden>
+        <label>Scoreboard</label>
+        <div class="seg"><button data-board="full">Full</button><button data-board="mini">Just me</button></div>
+        <p class="tiny" style="text-align:left;margin:0 0 6px">You can also tap the scoreboard in a game to shrink it.</p>
+      </div>
+      <button id="setBack2" class="alt setBackBtn" hidden>Back</button>
     </div>
   </div>
 
@@ -421,7 +446,7 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
       <button id="shareBtn" class="ghost">Send invite link</button>
       <p class="note" id="shareNote"></p>
       <label>Map</label>
-      <div class="mapPick"><div class="row2"><button data-map="field">Farmer's Field</button><button data-map="beach">The Beach</button></div><div class="row2"><button data-map="park">The Park</button><button data-map="mountain">The Mountain</button></div><button data-map="haunted" class="hwOnly hwMap" hidden>Haunted Field &middot; Halloween</button><button class="hwOnly themeBtn" hidden>Halloween night: Off</button></div>
+      <div class="mapPick"><div class="row2"><button data-map="field">Farmer's Field</button><button data-map="beach">The Beach</button></div><div class="row2"><button data-map="park">The Park</button><button data-map="mountain">The Mountain</button></div><button class="hwOnly themeBtn" hidden>Halloween night: Off</button></div>
       <label>Diggers here</label>
       <ul class="plist" id="lobbyList"></ul>
       <p class="note">Bots fill any empty spots up to 6 diggers.</p>
@@ -441,7 +466,7 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
       <div class="daily"></div>
       <ul class="plist" id="endList"></ul>
       <p id="endNote"></p>
-      <div class="mapPick"><div class="row2"><button data-map="field">Farmer's Field</button><button data-map="beach">The Beach</button></div><div class="row2"><button data-map="park">The Park</button><button data-map="mountain">The Mountain</button></div><button data-map="haunted" class="hwOnly hwMap" hidden>Haunted Field &middot; Halloween</button><button class="hwOnly themeBtn" hidden>Halloween night: Off</button></div>
+      <div class="mapPick"><div class="row2"><button data-map="field">Farmer's Field</button><button data-map="beach">The Beach</button></div><div class="row2"><button data-map="park">The Park</button><button data-map="mountain">The Mountain</button></div><button class="hwOnly themeBtn" hidden>Halloween night: Off</button></div>
       <button id="againBtn">Play again</button>
       <p class="note" id="againNote" hidden>Waiting for the host to start the next round&hellip;</p>
       <div class="row2"><button class="ghost wardOpen">Wardrobe</button><button class="ghost loadOpen">Powerups<small class="loadN">none</small></button></div>
@@ -571,13 +596,70 @@ const EV_TXT = {
 };
 const EV_END = {storm: 'The storm has passed', tractor: 'The tractor has gone', club: 'The detecting club got back on their coach', goldrush: 'The gold rush is over', fog: 'The fog has lifted', wave: 'The wave has gone back out', swarm: 'The flock has flown off', ghosts: 'The ghosts have faded away', dog: 'The dogs have gone home', keeper: 'The park keeper has gone for his tea', icecream: 'The ice cream van drove off', avalanche: 'The snow has settled', skiers: 'The skiers have gone', snowmobile: 'The snowmobile has gone'};
 const EV_NAME = {storm: 'Storm', tractor: 'Tractor', club: 'Detecting club', goldrush: 'Gold rush', fog: 'Fog', wave: 'Rogue wave', swarm: 'Swarm', ghosts: 'Ghosts', dog: 'Dogs', keeper: 'Park keeper', icecream: 'Ice cream', avalanche: 'Avalanche', skiers: 'Skiers', snowmobile: 'Snowmobile'};
-function showBanner(title, sub){ $('bannerT').textContent = title; $('bannerS').textContent = sub || ''; $('banner').hidden = false; bannerT = 3.6; }
+function showBanner(title, sub, kind){ $('bannerT').textContent = title; $('bannerS').textContent = sub || ''; $('banner').hidden = false; evBanner = {kind: kind || '', title, sub: sub || '', t: 0}; }
+// ---------- event banners: something from the event carries the news across the top of the screen ----------
+let evBanner = null;
+const EVB = { // ribbon colour and what carries it
+  storm: ['#3a3f5c', 'cloud'], tractor: ['#3b8d3b', 'tractor'], club: ['#7d8a6a', 'walkers'], goldrush: ['#c9a227', 'coin'], fog: ['#6b7480', 'mist'],
+  wave: ['#1f6fa0', 'wave'], swarm: ['#2b2b2b', 'flyers'], dog: ['#a0682f', 'dog'], keeper: ['#2f5d3a', 'keeper'], icecream: ['#e874a8', 'van'],
+  avalanche: ['#5a7a9a', 'snow'], skiers: ['#d63031', 'skier'], snowmobile: ['#d63031', 'sled'], ghosts: ['#4a2266', 'ghosts']};
+function drawEventBanner(dt){
+  const cv2 = $('evBan'); if (!evBanner){ if (cv2.width) cv2.width = 0; return; }
+  const B = evBanner; B.t += dt; const DUR = 4.4; if (B.t > DUR){ evBanner = null; return; }
+  const W = vw, H = 130; if (cv2.width !== Math.round(W*dpr)){ cv2.width = Math.round(W*dpr); cv2.height = Math.round(H*dpr); }
+  const g = cv2.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
+  const [col, carrier] = EVB[B.kind] || ['#3f5a2a', 'coin'];
+  const bw = Math.min(W - 40, 300), bh = 60, ease = k => 1 - Math.pow(1 - k, 3);
+  // slide in from the left, hold, carry off to the right
+  const home = W/2 - bw/2 - 26, x0 = B.t < .9 ? -bw - 140 + (home + bw + 140)*ease(B.t/.9) : B.t > DUR - .8 ? home + (W + 60 - home)*Math.pow((B.t - DUR + .8)/.8, 2) : home;
+  const by = 40, tt = t*1;
+  const carried = !['mist', 'cloud', 'flyers', 'ghosts', 'walkers', 'wave'].includes(carrier); // these hold it from above/below instead of pulling
+  const cx = x0 + bw + (carried ? 34 : 0), cy = by + bh/2;
+  // the ribbon, flapping a little
+  g.save(); g.shadowColor = 'rgba(0,0,0,.35)'; g.shadowBlur = 10; g.shadowOffsetY = 4;
+  g.fillStyle = col; g.beginPath(); const seg = 12;
+  for (let i = 0; i <= seg; i++){ const x = x0 + i/seg*bw, w2 = Math.sin(tt*6 + i*.7)*2.5*(1 - i/seg); i ? g.lineTo(x, by + w2) : g.moveTo(x, by + w2); }
+  for (let i = seg; i >= 0; i--){ const x = x0 + i/seg*bw, w2 = Math.sin(tt*6 + i*.7)*2.5*(1 - i/seg); g.lineTo(x, by + bh + w2); }
+  g.lineTo(x0 - 14, by + bh/2); g.closePath(); g.fill(); g.restore();
+  g.strokeStyle = 'rgba(255,255,255,.35)'; g.lineWidth = 2; g.strokeRect(x0 + 5, by + 5, bw - 10, bh - 10);
+  g.fillStyle = '#ffffff'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.font = `400 21px ${displayFont}`; g.fillText(B.title, x0 + bw/2, by + 22, bw - 20);
+  g.font = '800 11px Nunito, sans-serif'; g.fillStyle = 'rgba(255,255,255,.88)'; g.fillText(B.sub, x0 + bw/2, by + 44, bw - 20);
+  if (carried){ g.strokeStyle = '#3a2a1a'; g.lineWidth = 2; g.beginPath(); g.moveTo(x0 + bw, cy); g.lineTo(cx - 14, cy + 6); g.stroke(); } // the tow rope
+  const step = Math.sin(tt*14), legs = (x, y, c) => { g.strokeStyle = c; g.lineWidth = 3; g.lineCap = 'round'; g.beginPath(); g.moveTo(x, y); g.lineTo(x - 5 + step*4, y + 12); g.moveTo(x, y); g.lineTo(x + 5 - step*4, y + 12); g.stroke(); };
+  const person = (x, y, body, hat) => { legs(x, y + 8, '#2b3a20'); g.fillStyle = body; g.beginPath(); g.ellipse(x, y, 6, 10, 0, 0, 7); g.fill(); g.fillStyle = '#f0c9a0'; g.beginPath(); g.arc(x, y - 13, 5, 0, 7); g.fill(); if (hat){ g.fillStyle = hat; g.fillRect(x - 6, y - 19, 12, 4); g.fillRect(x - 4, y - 23, 8, 5); } };
+  const wheel = (x, y, r) => { g.fillStyle = '#222'; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); g.fillStyle = '#888'; g.beginPath(); g.arc(x, y, r*.4, 0, 7); g.fill(); };
+  switch (carrier){
+    case 'tractor': g.fillStyle = '#3b8d3b'; g.fillRect(cx - 18, cy - 10, 40, 18); g.fillRect(cx + 4, cy - 26, 18, 18); g.fillStyle = '#cfe8ef'; g.fillRect(cx + 7, cy - 23, 12, 10); g.fillStyle = '#555'; g.fillRect(cx - 14, cy - 22, 4, 12); wheel(cx - 8, cy + 10, 11); wheel(cx + 18, cy + 12, 7);
+      g.fillStyle = `rgba(90,90,90,${.4 + Math.random()*.2})`; g.beginPath(); g.arc(cx - 12, cy - 30 - (tt*30 % 12), 4, 0, 7); g.fill(); break;
+    case 'sled': g.fillStyle = '#d63031'; g.beginPath(); g.moveTo(cx - 20, cy); g.lineTo(cx + 22, cy); g.lineTo(cx + 14, cy - 12); g.lineTo(cx - 14, cy - 12); g.fill(); g.fillStyle = '#333'; g.fillRect(cx - 22, cy + 4, 46, 4); person(cx - 4, cy - 22, '#2d5f9e'); for (let i = 0; i < 4; i++){ g.fillStyle = 'rgba(255,255,255,.8)'; g.beginPath(); g.arc(cx - 28 - i*8, cy + 4 + Math.sin(tt*20 + i)*3, 4 - i*.5, 0, 7); g.fill(); } break;
+    case 'van': g.fillStyle = '#fdfdfb'; g.fillRect(cx - 22, cy - 22, 48, 30); g.fillStyle = '#f28fbf'; g.fillRect(cx - 22, cy - 8, 48, 5); g.fillStyle = '#9fd8ef'; g.fillRect(cx + 14, cy - 18, 10, 10); wheel(cx - 12, cy + 9, 7); wheel(cx + 16, cy + 9, 7);
+      g.fillStyle = '#f2c230'; g.beginPath(); g.moveTo(cx - 6, cy - 22); g.lineTo(cx - 2, cy - 36); g.lineTo(cx + 2, cy - 22); g.fill(); g.fillStyle = '#ffb3d9'; g.beginPath(); g.arc(cx - 2, cy - 38, 5, 0, 7); g.fill(); break;
+    case 'dog': { g.fillStyle = '#a0682f'; g.beginPath(); g.ellipse(cx, cy, 14, 7, 0, 0, 7); g.fill(); g.beginPath(); g.arc(cx + 14, cy - 6, 6, 0, 7); g.fill(); g.fillStyle = '#7a4a1e'; g.beginPath(); g.ellipse(cx + 12, cy - 11, 3, 5, -.4, 0, 7); g.fill();
+      g.strokeStyle = '#a0682f'; g.lineWidth = 3; for (const lx of [-9, 9]){ g.beginPath(); g.moveTo(cx + lx, cy + 4); g.lineTo(cx + lx + step*5, cy + 14); g.stroke(); } g.beginPath(); g.moveTo(cx - 13, cy - 2); g.lineTo(cx - 20, cy - 8 + step*3); g.stroke(); break; }
+    case 'keeper': person(cx, cy - 2, '#2f5d3a', '#1e3a26'); g.strokeStyle = '#ffffff'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(cx + 4, cy - 12); g.lineTo(cx + 8, cy - 14); g.stroke(); break;
+    case 'skier': person(cx, cy - 6, '#d63031'); g.strokeStyle = '#222'; g.lineWidth = 3; g.beginPath(); g.moveTo(cx - 16, cy + 18); g.lineTo(cx + 18, cy + 14); g.stroke(); g.strokeStyle = '#777'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(cx + 6, cy - 6); g.lineTo(cx + 14, cy + 12); g.stroke(); break;
+    case 'coin': { const w = Math.abs(Math.cos(tt*6))*14 + 2; g.fillStyle = '#d9a514'; g.beginPath(); g.ellipse(cx, cy - Math.abs(Math.sin(tt*5))*10, w, 14, 0, 0, 7); g.fill(); g.fillStyle = '#ffe58a'; g.beginPath(); g.ellipse(cx - w*.2, cy - 2 - Math.abs(Math.sin(tt*5))*10, w*.5, 8, 0, 0, 7); g.fill();
+      for (let i = 0; i < 6; i++){ const a = tt*2 + i, r = 30 + (i % 3)*8; g.fillStyle = '#fff1a8'; g.fillRect(x0 + bw/2 + Math.cos(a)*bw*.55, by + bh/2 + Math.sin(a*1.3)*r, 3, 3); } break; }
+    case 'snow': for (let i = 0; i < 3; i++){ const r = 12 - i*3, x = cx + i*18, y = cy + 10 - r; g.save(); g.translate(x, y); g.rotate(tt*6); g.fillStyle = '#ffffff'; g.beginPath(); g.arc(0, 0, r, 0, 7); g.fill(); g.strokeStyle = '#c3d3e0'; g.lineWidth = 1.5; g.stroke(); g.beginPath(); g.moveTo(-r*.5, 0); g.lineTo(r*.5, 0); g.stroke(); g.restore(); } break;
+    case 'walkers': for (let i = 0; i < 4; i++){ const px = x0 + 30 + i*(bw - 60)/3; person(px, by + bh + 20, '#7d8a6a', '#5a4630'); g.strokeStyle = '#5a4630'; g.lineWidth = 2; g.beginPath(); g.moveTo(px + 5, by + bh + 12); g.lineTo(px + 5, by + bh - 4); g.stroke(); } break;
+    case 'cloud': { for (const [dx, dy, r] of [[-60, -14, 22], [-30, -22, 26], [5, -18, 24], [40, -16, 20], [70, -10, 16]]){ g.fillStyle = '#4a4f68'; g.beginPath(); g.arc(x0 + bw/2 + dx, by - 6 + dy, r, 0, 7); g.fill(); }
+      if (Math.sin(tt*9) > .7){ g.strokeStyle = '#fff6a8'; g.lineWidth = 3; g.beginPath(); g.moveTo(x0 + bw - 30, by - 10); g.lineTo(x0 + bw - 22, by + 20); g.lineTo(x0 + bw - 14, by + 16); g.lineTo(x0 + bw - 4, by + bh + 20); g.stroke(); } break; }
+    case 'mist': for (let i = 0; i < 9; i++){ const a = i/9*Math.PI*2 + tt*.6; g.fillStyle = 'rgba(225,230,235,.55)'; g.beginPath(); g.arc(x0 + bw/2 + Math.cos(a)*bw*.5, by + bh/2 + Math.sin(a)*bh*.7, 18, 0, 7); g.fill(); } break;
+    case 'wave': g.fillStyle = 'rgba(40,130,190,.9)'; g.beginPath(); g.moveTo(x0 - 20, by + bh + 26); for (let x = x0 - 20; x <= x0 + bw + 20; x += 10) g.lineTo(x, by + bh + 4 + Math.sin(x*.05 + tt*5)*6); g.lineTo(x0 + bw + 20, by + bh + 26); g.fill();
+      g.strokeStyle = '#ffffff'; g.lineWidth = 3; g.beginPath(); for (let x = x0 - 20; x <= x0 + bw + 20; x += 10){ const y = by + bh + 4 + Math.sin(x*.05 + tt*5)*6; x === x0 - 20 ? g.moveTo(x, y) : g.lineTo(x, y); } g.stroke(); break;
+    case 'flyers': case 'ghosts': for (let i = 0; i < 3; i++){ const fx = x0 + 30 + i*(bw - 60)/2, fy = by - 22 + Math.sin(tt*4 + i)*4;
+      g.strokeStyle = 'rgba(255,255,255,.6)'; g.lineWidth = 1; g.beginPath(); g.moveTo(fx, fy + 6); g.lineTo(fx, by + 2); g.stroke();
+      if (carrier === 'ghosts'){ g.fillStyle = 'rgba(240,244,255,.95)'; g.beginPath(); g.arc(fx, fy - 4, 10, Math.PI, 0); g.lineTo(fx + 10, fy + 8); g.lineTo(fx + 3, fy + 4); g.lineTo(fx - 3, fy + 8); g.lineTo(fx - 10, fy + 4); g.closePath(); g.fill(); g.fillStyle = '#222'; g.fillRect(fx - 4, fy - 6, 2.5, 3.5); g.fillRect(fx + 2, fy - 6, 2.5, 3.5); }
+      else { const w = Math.sin(tt*16 + i)*7; g.fillStyle = spooky() ? '#231a2e' : MAP === 'beach' ? '#e8ecee' : '#1a1a1a'; g.beginPath(); g.ellipse(fx, fy, 7, 4, 0, 0, 7); g.fill(); g.beginPath(); g.moveTo(fx - 3, fy); g.lineTo(fx - 14, fy - 4 - w); g.lineTo(fx - 4, fy - 2); g.moveTo(fx + 3, fy); g.lineTo(fx + 14, fy - 4 - w); g.lineTo(fx + 4, fy - 2); g.fill(); } } break;
+  }
+}
 const thunder = (v = 1) => { noise(1.5, 140, .4, 1.4*v, 'lowpass'); beep(42, 1.3, 'sawtooth', .07*v); };
 function startEvent(kind, dur, data, elapsed){
   curEv = {kind, dur, data, start: t - (elapsed || 0)};
   if (kind === 'tractor') furrows.push({...data, start: curEv.start});
   if (elapsed) return; // joined part way through: no fanfare
-  const [a, b] = EV_TXT[kind](); showBanner(a, b);
+  const [a, b] = EV_TXT[kind](); showBanner(a, b, kind);
   if (kind === 'storm') thunder(.6);
   if (kind === 'tractor') [0, 350].forEach(ms => setTimeout(() => beep(233, .3, 'square', .07), ms));
   if (kind === 'club') [[392, 0], [330, 260]].forEach(([f, ms]) => setTimeout(() => beep(f, .26, 'sawtooth', .07), ms));
@@ -1527,7 +1609,7 @@ function renderLobby(players){
   const isHost = myId === hostId && !roomPublic;
   document.querySelectorAll('.mapPick').forEach(el => el.hidden = roomPublic);
   document.querySelectorAll('.mapPick button').forEach(b => { b.classList.toggle('on', b.dataset.map === lobbyMap); b.disabled = !isHost; });
-  document.querySelectorAll('.themeBtn').forEach(b => { const on = lobbyTheme === 'halloween' || lobbyMap === 'haunted'; b.classList.toggle('on', on); b.textContent = `Halloween night: ${on ? 'On' : 'Off'}`; b.disabled = !isHost || lobbyMap === 'haunted'; });
+  document.querySelectorAll('.themeBtn').forEach(b => { const on = lobbyTheme === 'halloween'; b.classList.toggle('on', on); b.textContent = `Halloween night: ${on ? 'On' : 'Off'}`; b.disabled = !isHost; });
   $('startBtn').hidden = !isHost; $('waitNote').hidden = isHost;
   $('againBtn').hidden = !isHost; $('againNote').hidden = isHost;
   const auto = autoIn != null ? `Starting in ${autoIn}s…` : 'Starting soon…';
@@ -1970,9 +2052,16 @@ function renderSettings(){
   document.querySelectorAll('[data-board]').forEach(b => b.classList.toggle('on', (b.dataset.board === 'mini') === boardMini));
   document.querySelectorAll('[data-det]').forEach(b => b.classList.toggle('on', b.dataset.det === detMode));
   $('volIn').value = Math.round(volume*100); $('musIn').value = Math.round(musicVol*100); $('vibWrap').hidden = !navigator.vibrate;
+  $('navSound').textContent = muted ? 'Sound off' : `Effects ${Math.round(volume*100)}% \u00B7 music ${Math.round(musicVol*100)}%`;
+  $('navControls').textContent = `${SHORT[layout]} \u00B7 ${({classic: 'Classic', zone: 'Zone', pinpoint: 'Pinpoint'})[detMode]} detector`;
+  $('navDisplay').textContent = boardMini ? 'Scoreboard: just me' : 'Scoreboard: full';
   $('setGame').hidden = !roomCode || !ws; $('setLeave').hidden = !ws; $('setCode').textContent = roomCode || '----';
 }
-function openSettings(){ releaseAll(); $('setShareNote').textContent = ''; renderSettings(); $('settings').hidden = false; }
+const SET_TITLES = {main: 'Settings', sound: 'Sound & music', controls: 'Controls', display: 'Display'};
+function setPage(pg){ document.querySelectorAll('.setPage').forEach(el => el.hidden = el.dataset.page !== pg); $('setTitle').textContent = SET_TITLES[pg]; $('setBack').hidden = $('setBack2').hidden = pg === 'main'; renderSettings(); }
+document.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => setPage(b.dataset.go)));
+$('setBack').addEventListener('click', () => setPage('main')); $('setBack2').addEventListener('click', () => setPage('main'));
+function openSettings(){ releaseAll(); $('setShareNote').textContent = ''; setPage('main'); $('settings').hidden = false; }
 $('setBtn').addEventListener('click', () => { unlockAudio(); $('settings').hidden ? openSettings() : ($('settings').hidden = true); });
 $('setDone').addEventListener('click', () => { $('settings').hidden = true; });
 $('settings').addEventListener('click', e => { if (e.target === $('settings')) $('settings').hidden = true; }); // tap outside to close
@@ -2121,7 +2210,6 @@ function update(dt){
   for (const l of loose.values()) l.age += dt;
   for (const c of crates.values()) c.age += dt;
   for (const h of heavies.values()){ h.x += (h.tx - h.x)*k; h.y += (h.ty - h.y)*k; }
-  if (bannerT > 0 && (bannerT -= dt) <= 0) $('banner').hidden = true;
   flash = Math.max(0, flash - dt*3);
   for (const b of bolts.values()) b.t += dt;
   if (curEv && (curEv.kind === 'tractor' || curEv.kind === 'snowmobile')){ const D = curEv.data, tx = D.x0 + D.dir*D.speed*(t - curEv.start), v = Math.max(0, 1 - Math.hypot(tx - me.x, D.y - me.y)/650), sm = curEv.kind === 'snowmobile';
@@ -2199,8 +2287,9 @@ function update(dt){
   powBtn.hidden = !P;
   const slots = profile ? profile.slots || 1 : 1, hp = me.held || [], key = hp.join('') + me.sel + slots;
   if ($('powSlots').dataset.k !== key){ $('powSlots').dataset.k = key; $('powSlots').hidden = slots < 2 || !hp.length;
-    $('powSlots').innerHTML = Array.from({length: slots}, (_, i) => i === me.sel && hp[i] ? '' : hp[i] ? `<button data-sel="${i}" style="border-color:${POW_COL[hp[i]]}">${POWERS[hp[i]] ? POWERS[hp[i]].short : ''}</button>` : '<button class="empty" disabled>EMPTY</button>').join(''); }
-  if (P && powBtn.dataset.k !== me.power){ powBtn.dataset.k = me.power; powBtn.innerHTML = `${P.short}<small>TAP TO USE</small>`; powBtn.style.background = ''; }
+    $('powSlots').innerHTML = Array.from({length: slots}, (_, i) => { const L = 'ABC'[i];
+      return hp[i] ? `<button data-sel="${i}" class="${i === me.sel ? 'on' : ''}"${i === me.sel ? '' : ` style="border-color:${POW_COL[hp[i]]}"`}><b>${L}</b>${POWERS[hp[i]] ? POWERS[hp[i]].short : ''}</button>` : `<button class="empty" disabled><b>${L}</b>EMPTY</button>`; }).join(''); }
+  const pk2 = me.power + me.sel + slots; if (P && powBtn.dataset.k !== pk2){ powBtn.dataset.k = pk2; powBtn.innerHTML = `${slots > 1 ? `<span class="slotTag">${'ABC'[me.sel] || 'A'}</span>` : ''}${P.short}<small>TAP TO USE</small>`; powBtn.style.background = ''; }
   const FX_LABEL = {z: 'Tired arm', x: 'Stinky! Detector scrambled'};
   const evChip = curEv ? `<span style="--c:#ffd447">${curEv.kind === 'fog' && MAP === 'mountain' ? 'Blizzard' : curEv.kind === 'fog' && MAP === 'haunted' ? 'Mist' : EV_NAME[curEv.kind]} ${Math.max(0, Math.ceil(curEv.dur - (t - curEv.start)))}s</span>` : '';
   const fxHtml = evChip + Object.keys(me.fx).filter(k => POWERS[k] || FX_LABEL[k]).map(k => `<span style="--c:${POW_COL[k]}">${FX_LABEL[k] || POWERS[k].name}${k === 'p' ? '' : k === 'l' ? ' \u00D7' + me.fx[k] : ' ' + me.fx[k] + 's'}</span>`).join('');
@@ -3305,6 +3394,7 @@ function frame(now){
   requestAnimationFrame(frame); // keep the loop alive even if something below goes wrong
   const dt = Math.min(.05, (now - last)/1000); last = now;
   try { update(dt); } catch (e) { reportError(e, 'update'); }
+  try { if (!inGame) evBanner = null; drawEventBanner(dt); } catch (e) { evBanner = null; }
   try { draw(); } catch (e) { reportError(e, 'draw'); try { ctx.restore(); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); } catch (_) {} }
   try {
     if (!$('wardrobe').hidden && wStage){ wStage.spin = !wStage.showFx; drawStage($('wPrev'), wStage, dt, trying, trying.jacket !== 'auto' ? JACKET_HEX[trying.jacket] : '#2d5f9e'); }
