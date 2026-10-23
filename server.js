@@ -1163,8 +1163,8 @@ class Room {
   stat(id, key, n = 1, mode) {
     if (id == null || id >= 1000) return; // bots and the detecting club don't have accounts
     const [ws, c] = this.clientOf(id); if (!c || !c.acct) return;
-    const got = accounts.track(c.acct, key, n, mode);
-    if (got.length || got.daily.length) this.send(ws, { t: 'profile', profile: accounts.profile(c.acct), ach: got.map(a => a.id), daily: got.daily.map(x => x.id) });
+    const got = accounts.track(c.acct, key, n, mode) || [], daily = got.daily || [];
+    if (got.length || daily.length) this.send(ws, { t: 'profile', profile: accounts.profile(c.acct), ach: got.map(a => a.id), daily: daily.map(x => x.id) });
   }
   // most stats come straight off the events the clients already get
   statsFromEvents(evs) {
@@ -1406,6 +1406,9 @@ function onConnection(ws) {
   });
 }
 
+process.on('uncaughtException', e => console.error('UNCAUGHT', e && e.stack || e)); // log it and keep serving everyone else
+process.on('unhandledRejection', e => console.error('UNHANDLED', e && e.stack || e));
+
 // heartbeat drops dead phone connections
 setInterval(() => {
   for (const ws of conns) { if (!ws.isAlive) { ws.terminate(); continue; } ws.isAlive = false; ws.ping(); }
@@ -1414,7 +1417,7 @@ setInterval(() => {
 let last = Date.now();
 setInterval(() => {
   const now = Date.now(), dt = Math.min(0.1, (now - last) / 1000); last = now;
-  for (const r of rooms.values()) r.tick(dt);
+  for (const r of rooms.values()) { try { r.tick(dt); } catch (e) { console.error('ROOM ERROR', r.code, e && e.stack || e); } }
 }, TICK_MS);
 
 accounts.init().then(() => {

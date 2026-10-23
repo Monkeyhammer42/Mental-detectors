@@ -328,8 +328,9 @@ class Accounts {
   // add to a counter ('add'), keep the best ('max') or remember a value ('set'); returns any achievements just unlocked
   track(acct, stat, n = 1, mode = 'add') {
     const st = acct.data.stats = acct.data.stats || {};
-    if (mode === 'max') { if (n <= (st[stat] || 0)) return []; st[stat] = n; }
-    else if (mode === 'set') { const arr = st[stat] = st[stat] || []; if (arr.includes(n)) return []; arr.push(n); }
+    const none = Object.assign([], { daily: [] }); // nothing new: callers always get an achievements list with a daily list on it
+    if (mode === 'max') { if (n <= (st[stat] || 0)) return none; st[stat] = n; }
+    else if (mode === 'set') { const arr = st[stat] = st[stat] || []; if (arr.includes(n)) return none; arr.push(n); }
     else st[stat] = (st[stat] || 0) + n;
     if (stat === 'banked') { const w = this.week(acct); w.banked += n; }
     const got = this.checkAch(acct, [stat]);
