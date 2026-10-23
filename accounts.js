@@ -6,16 +6,72 @@ const { Pg } = require('./pglite');
 
 // ---------- what can be unlocked: [id, name, coins, level] ----------
 const CATALOG = {
-  hat: { label: 'Hats', items: [['none', 'No hat', 0, 1], ['cap', 'Flat cap', 0, 1], ['bucket', 'Bucket hat', 50, 2], ['beanie', 'Bobble beanie', 50, 2], ['party', 'Party hat', 60, 3], ['cone', 'Traffic cone', 80, 4], ['hard', 'Hard hat', 100, 5], ['deer', 'Deerstalker', 100, 6], ['top', 'Top hat', 120, 8], ['cowboy', 'Cowboy hat', 150, 10], ['pirate', 'Pirate hat', 200, 12], ['viking', 'Viking helmet', 250, 15], ['halo', 'Halo', 400, 20], ['crown', 'Crown', 500, 25]] },
-  jacket: { label: 'Jacket', items: [['auto', 'Team colour', 0, 1], ['red', 'Red', 30, 2], ['yellow', 'Yellow', 30, 2], ['pink', 'Pink', 30, 2], ['orange', 'Orange', 30, 2], ['purple', 'Purple', 30, 2], ['sky', 'Sky blue', 30, 2], ['black', 'Black', 60, 4], ['white', 'White', 60, 4], ['hivis', 'Hi-vis', 100, 6], ['camo', 'Camo', 120, 9], ['stripes', 'Breton stripes', 150, 11], ['tartan', 'Tartan', 150, 13]] },
-  boots: { label: 'Wellies', items: [['green', 'Green', 0, 1], ['yellow', 'Yellow', 30, 2], ['red', 'Red', 30, 2], ['pink', 'Pink', 30, 3], ['blue', 'Blue', 30, 3], ['gold', 'Gold', 150, 14]] },
-  pack: { label: 'Backpack', items: [['canvas', 'Canvas bag', 0, 1], ['leather', 'Leather satchel', 60, 3], ['teddy', 'Teddy bear', 120, 7], ['chest', 'Treasure chest', 250, 12], ['rocket', 'Rocket pack', 300, 18]] },
-  pet: { label: 'Pet', items: [['none', 'No pet', 0, 1], ['duck', 'Duck', 200, 5], ['dog', 'Dog', 300, 9], ['cat', 'Cat', 300, 9], ['parrot', 'Parrot', 250, 13], ['mole', 'Mole', 350, 22]] },
-  trail: { label: 'Trail', items: [['none', 'No trail', 0, 1], ['prints', 'Muddy prints', 50, 2], ['hearts', 'Hearts', 150, 7], ['sparkle', 'Sparkles', 200, 11], ['gold', 'Gold dust', 400, 24]] },
-  det: { label: 'Detector', items: [['classic', 'Classic', 0, 1], ['retro', 'Retro wood', 100, 6], ['neon', 'Neon', 150, 12], ['gold', 'Gold', 300, 20]] },
-  spade: { label: 'Spade', items: [['old', 'Old spade', 0, 1], ['steel', 'Shiny steel', 80, 5], ['gold', 'Golden', 250, 16]] },
-  win: { label: 'Victory', items: [['confetti', 'Confetti', 0, 1], ['fireworks', 'Fireworks', 100, 7], ['coins', 'Coin shower', 150, 12], ['fanfare', 'Fanfare', 200, 17]] },
+  hat: { label: 'Hats', items: [['none', 'No hat', 0, 1], ['cap', 'Flat cap', 0, 1], ['bucket', 'Bucket hat', 50, 2], ['beanie', 'Bobble beanie', 50, 2], ['party', 'Party hat', 60, 3], ['cone', 'Traffic cone', 80, 4], ['hard', 'Hard hat', 100, 5], ['deer', 'Deerstalker', 100, 6], ['top', 'Top hat', 120, 8], ['cowboy', 'Cowboy hat', 150, 10], ['pirate', 'Pirate hat', 200, 12], ['viking', 'Viking helmet', 250, 15], ['halo', 'Halo', 400, 20], ['crown', 'Crown', 500, 25], ['chef', "Chef's hat", 120, 6], ['bunny', 'Bunny ears', 140, 7], ['santa', 'Santa hat', 150, 9], ['witch', 'Witch hat', 180, 11], ['propeller', 'Propeller cap', 200, 14], ['wizard', 'Wizard hat', 250, 17], ['antlers', 'Reindeer antlers', 220, 19], ['pumpkin', 'Pumpkin head', 300, 22], ['dinohood', 'Dino hood', 320, 27], ['space', 'Space helmet', 450, 30], ['unicorn', 'Unicorn horn', 500, 35]] },
+  jacket: { label: 'Jacket', items: [['auto', 'Team colour', 0, 1], ['red', 'Red', 30, 2], ['yellow', 'Yellow', 30, 2], ['pink', 'Pink', 30, 2], ['orange', 'Orange', 30, 2], ['purple', 'Purple', 30, 2], ['sky', 'Sky blue', 30, 2], ['black', 'Black', 60, 4], ['white', 'White', 60, 4], ['hivis', 'Hi-vis', 100, 6], ['camo', 'Camo', 120, 9], ['stripes', 'Breton stripes', 150, 11], ['tartan', 'Tartan', 150, 13], ['tux', 'Tuxedo', 180, 8], ['chefwhites', 'Chef whites', 180, 10], ['santasuit', 'Santa suit', 250, 14], ['skeleton', 'Skeleton costume', 260, 16], ['banana', 'Banana suit', 280, 18], ['ghost', 'Ghost sheet', 300, 21], ['wizrobe', 'Wizard robe', 320, 23], ['hero', 'Superhero cape', 380, 26], ['knight', 'Knight armour', 420, 29], ['dino', 'Dino costume', 450, 32], ['astro', 'Astronaut suit', 500, 36]] },
+  boots: { label: 'Wellies', items: [['green', 'Green', 0, 1], ['yellow', 'Yellow', 30, 2], ['red', 'Red', 30, 2], ['pink', 'Pink', 30, 3], ['blue', 'Blue', 30, 3], ['gold', 'Gold', 150, 14], ['purple', 'Purple', 30, 3], ['black', 'Black', 40, 4], ['rainbow', 'Rainbow', 120, 10], ['clown', 'Clown shoes', 160, 15], ['flippers', 'Flippers', 180, 20], ['skates', 'Ice skates', 220, 26]] },
+  pack: { label: 'Backpack', items: [['canvas', 'Canvas bag', 0, 1], ['leather', 'Leather satchel', 60, 3], ['teddy', 'Teddy bear', 120, 7], ['chest', 'Treasure chest', 250, 12], ['rocket', 'Rocket pack', 300, 18], ['picnic', 'Picnic basket', 100, 5], ['shell', 'Turtle shell', 180, 10], ['balloons', 'Balloons', 200, 15], ['surf', 'Surfboard', 220, 19], ['guitar', 'Guitar', 240, 21], ['batwings', 'Bat wings', 300, 28], ['fairy', 'Fairy wings', 300, 31]] },
+  pet: { label: 'Pet', items: [['none', 'No pet', 0, 1], ['duck', 'Duck', 200, 5], ['dog', 'Dog', 300, 9], ['cat', 'Cat', 300, 9], ['parrot', 'Parrot', 250, 13], ['mole', 'Mole', 350, 22], ['frog', 'Frog', 220, 6], ['hedgehog', 'Hedgehog', 260, 11], ['penguin', 'Penguin', 320, 16], ['pig', 'Piglet', 280, 20], ['robot', 'Robo-pup', 450, 30], ['dragon', 'Baby dragon', 600, 40]] },
+  trail: { label: 'Trail', items: [['none', 'No trail', 0, 1], ['prints', 'Muddy prints', 50, 2], ['hearts', 'Hearts', 150, 7], ['sparkle', 'Sparkles', 200, 11], ['gold', 'Gold dust', 400, 24], ['bubbles', 'Bubbles', 120, 5], ['flowers', 'Flowers', 150, 9], ['notes', 'Music notes', 180, 14], ['snow', 'Snowflakes', 200, 18], ['fire', 'Flames', 300, 27], ['rainbow', 'Rainbow', 500, 38]] },
+  det: { label: 'Detector', items: [['classic', 'Classic', 0, 1], ['retro', 'Retro wood', 100, 6], ['neon', 'Neon', 150, 12], ['gold', 'Gold', 300, 20], ['toy', 'Toy', 120, 4], ['candy', 'Candy cane', 160, 9], ['ice', 'Frosty', 200, 15], ['lava', 'Lava', 260, 24], ['diamond', 'Diamond', 450, 34]] },
+  spade: { label: 'Spade', items: [['old', 'Old spade', 0, 1], ['steel', 'Shiny steel', 80, 5], ['gold', 'Golden', 250, 16], ['pan', 'Frying pan', 120, 4], ['fish', 'Wet fish', 160, 8], ['baguette', 'Baguette', 160, 11], ['chicken', 'Rubber chicken', 220, 15], ['sword', 'Toy sword', 250, 22], ['diamond', 'Diamond spade', 450, 33]] },
+  win: { label: 'Victory', items: [['confetti', 'Confetti', 0, 1], ['fireworks', 'Fireworks', 100, 7], ['coins', 'Coin shower', 150, 12], ['fanfare', 'Fanfare', 200, 17], ['bubbles', 'Bubble storm', 120, 5], ['hearts', 'Heart rain', 150, 9], ['snow', 'Snowfall', 150, 13], ['disco', 'Disco', 250, 21], ['balloons', 'Balloon lift', 300, 28]] },
 };
+// ---------- achievements ----------
+// Kept on our own server so they work for everyone, signed in with a name or with Google.
+// `gpgs` is the matching Google Play Games achievement id. Leave it null until the achievements are set up in the
+// Play Console, then paste each id in: the game mirrors unlocks (and progress, for `steps`) to Google whenever it runs
+// inside an Android wrapper that provides window.FKPlatform. Nothing else needs to change.
+// stat: what's counted. Most are lifetime counters; 'level', 'rounds', 'wins', 'owned' and 'maps' are read from the account.
+const ACHIEVEMENTS = [
+  // digging
+  { id: 'first_find', name: "Beginner's luck", desc: 'Dig up your first find', stat: 'finds', goal: 1, coins: 20, gpgs: null },
+  { id: 'finds_100', name: 'Seasoned digger', desc: 'Dig up 100 finds', stat: 'finds', goal: 100, coins: 75, gpgs: null, steps: true },
+  { id: 'finds_1000', name: 'Human mole', desc: 'Dig up 1,000 finds', stat: 'finds', goal: 1000, coins: 300, gpgs: null, steps: true },
+  { id: 'gold_1', name: 'Struck gold', desc: 'Dig up a gold find', stat: 'gold', goal: 1, coins: 40, gpgs: null },
+  { id: 'gold_50', name: 'Gold fever', desc: 'Dig up 50 gold finds', stat: 'gold', goal: 50, coins: 250, gpgs: null, steps: true },
+  { id: 'boxes_10', name: 'Mystery solved', desc: 'Open 10 mystery boxes', stat: 'boxes', goal: 10, coins: 60, gpgs: null, steps: true },
+  { id: 'wreck_1', name: 'Shipwrecked', desc: 'Dig up a find from the shipwreck', stat: 'wreck', goal: 1, coins: 50, gpgs: null },
+  { id: 'decoyed', name: "Fool's gold", desc: "Dig up someone's decoy", stat: 'decoyed', goal: 1, coins: 20, gpgs: null },
+  // the Museum
+  { id: 'bank_1000', name: 'Curator', desc: 'Bank 1,000 points in total', stat: 'banked', goal: 1000, coins: 50, gpgs: null, steps: true },
+  { id: 'bank_25000', name: 'Museum patron', desc: 'Bank 25,000 points in total', stat: 'banked', goal: 25000, coins: 300, gpgs: null, steps: true },
+  { id: 'round_500', name: 'Big haul', desc: 'Bank 500 points in one round', stat: 'bestRound', goal: 500, coins: 100, gpgs: null },
+  { id: 'clutch', name: 'Cutting it fine', desc: 'Bank finds in the last 5 seconds', stat: 'clutch', goal: 1, coins: 40, gpgs: null },
+  { id: 'heavy_1', name: 'Heavy lifting', desc: 'Help carry a heavy find to the Museum', stat: 'heavies', goal: 1, coins: 50, gpgs: null },
+  { id: 'heavy_10', name: 'Removal crew', desc: 'Help carry 10 heavy finds to the Museum', stat: 'heavies', goal: 10, coins: 200, gpgs: null, steps: true },
+  // rounds and winning
+  { id: 'rounds_10', name: 'Regular', desc: 'Play 10 rounds', stat: 'rounds', goal: 10, coins: 50, gpgs: null, steps: true },
+  { id: 'rounds_100', name: 'Never off the field', desc: 'Play 100 rounds', stat: 'rounds', goal: 100, coins: 300, gpgs: null, steps: true },
+  { id: 'win_1', name: 'Top digger', desc: 'Win a round', stat: 'wins', goal: 1, coins: 50, gpgs: null },
+  { id: 'win_10', name: 'Champion', desc: 'Win 10 rounds', stat: 'wins', goal: 10, coins: 150, gpgs: null, steps: true },
+  { id: 'win_50', name: 'Legend of the field', desc: 'Win 50 rounds', stat: 'wins', goal: 50, coins: 500, gpgs: null, steps: true },
+  { id: 'maps_all', name: 'World traveller', desc: 'Play a round on every map', stat: 'maps', goal: 4, coins: 75, gpgs: null, steps: true },
+  // dirty tricks
+  { id: 'rob_1', name: 'Bonk!', desc: 'Bonk someone into dropping a find', stat: 'robs', goal: 1, coins: 20, gpgs: null },
+  { id: 'rob_100', name: 'Highwayman', desc: 'Bonk finds out of people 100 times', stat: 'robs', goal: 100, coins: 250, gpgs: null, steps: true },
+  { id: 'glove', name: 'Sticky fingers', desc: 'Steal a find with the sticky glove', stat: 'gloves', goal: 1, coins: 40, gpgs: null },
+  { id: 'shock_3', name: 'Shockwave', desc: 'Hit 3 or more people with one big bonk', stat: 'shockMax', goal: 3, coins: 75, gpgs: null },
+  { id: 'banana', name: 'Slapstick', desc: 'Someone slips on your banana peel', stat: 'slips', goal: 1, coins: 40, gpgs: null },
+  { id: 'smash', name: 'Wrecking ball', desc: 'Land the bonk that smashes a heavy find', stat: 'smashes', goal: 1, coins: 50, gpgs: null },
+  { id: 'birds_25', name: 'Bird scarer', desc: 'Bonk 25 birds', stat: 'birds', goal: 25, coins: 100, gpgs: null, steps: true },
+  { id: 'crates_10', name: 'Supply run', desc: 'Grab 10 supply crates', stat: 'crates', goal: 10, coins: 75, gpgs: null, steps: true },
+  // random events
+  { id: 'struck', name: 'Lightning rod', desc: 'Get struck by lightning', stat: 'struck', goal: 1, coins: 30, gpgs: null },
+  { id: 'runover', name: 'Roadkill', desc: 'Get run over by a tractor or snowmobile', stat: 'runover', goal: 1, coins: 30, gpgs: null },
+  { id: 'dog', name: 'Who let the dogs out', desc: 'Bonk a dog', stat: 'dogs', goal: 1, coins: 30, gpgs: null },
+  { id: 'keeper', name: 'Keep off the grass', desc: 'Get caught by the park keeper', stat: 'keeper', goal: 1, coins: 30, gpgs: null },
+  { id: 'icecream', name: '99 Flake', desc: 'Get an ice cream from the van', stat: 'icecream', goal: 1, coins: 30, gpgs: null },
+  { id: 'buried', name: 'Snow joke', desc: 'Get buried by an avalanche', stat: 'buried', goal: 1, coins: 30, gpgs: null },
+  { id: 'wipeout', name: 'Wipeout', desc: 'Get wiped out by a skier', stat: 'wipeout', goal: 1, coins: 30, gpgs: null },
+  // progress
+  { id: 'level_10', name: 'Getting good', desc: 'Reach level 10', stat: 'level', goal: 10, coins: 100, gpgs: null, steps: true },
+  { id: 'level_25', name: 'Expert', desc: 'Reach level 25', stat: 'level', goal: 25, coins: 300, gpgs: null, steps: true },
+  { id: 'level_50', name: 'Master detectorist', desc: 'Reach level 50', stat: 'level', goal: 50, coins: 1000, gpgs: null, steps: true },
+  { id: 'owned_20', name: 'Fashionista', desc: 'Own 20 cosmetics', stat: 'owned', goal: 20, coins: 150, gpgs: null, steps: true },
+];
+const ACH_BY_STAT = {};
+for (const a of ACHIEVEMENTS) (ACH_BY_STAT[a.stat] = ACH_BY_STAT[a.stat] || []).push(a);
+
 // starting powerups: key -> [level, coins per round]
 const LOADOUT = { c: [2, 15], t: [3, 15], w: [4, 15], m: [5, 20], p: [6, 25], l: [7, 25], b: [8, 20], s: [9, 25], r: [10, 30], k: [12, 30], g: [14, 35], d: [16, 35], q: [18, 40] };
 const MAX_LEVEL = 50, START_COINS = 50, IMPORT_CAP = 3000;
@@ -222,11 +278,39 @@ class Accounts {
     for (const cat in CATALOG) { const v = raw && raw[cat]; l[cat] = item(cat, v) && this.owns(acct, cat, v) ? v : CATALOG[cat].items[0][0]; }
     return l;
   }
+  // ----- achievements -----
+  statValue(acct, stat) {
+    const d = acct.data, st = d.stats || {};
+    if (stat === 'level') return this.level(acct);
+    if (stat === 'rounds') return d.rounds || 0;
+    if (stat === 'wins') return d.wins || 0;
+    if (stat === 'owned') return (d.owned || []).length;
+    if (stat === 'maps') return (st.maps || []).length;
+    return st[stat] || 0;
+  }
+  // add to a counter ('add'), keep the best ('max') or remember a value ('set'); returns any achievements just unlocked
+  track(acct, stat, n = 1, mode = 'add') {
+    const st = acct.data.stats = acct.data.stats || {};
+    if (mode === 'max') { if (n <= (st[stat] || 0)) return []; st[stat] = n; }
+    else if (mode === 'set') { const arr = st[stat] = st[stat] || []; if (arr.includes(n)) return []; arr.push(n); }
+    else st[stat] = (st[stat] || 0) + n;
+    return this.checkAch(acct, [stat]);
+  }
+  checkAch(acct, stats) {
+    const got = [], have = acct.data.ach = acct.data.ach || {};
+    for (const stat of stats || Object.keys(ACH_BY_STAT)) for (const a of ACH_BY_STAT[stat] || []) {
+      if (have[a.id] || this.statValue(acct, stat) < a.goal) continue;
+      have[a.id] = Date.now(); acct.data.coins += a.coins; got.push(a);
+    }
+    if (got.length) this.save(acct).catch(e => console.error('save achievement', e.message));
+    return got;
+  }
   profile(acct) {
     const d = acct.data, L = levelFor(d.xp);
     return { name: acct.name, coins: d.coins, xp: d.xp, level: L, levelXp: xpForLevel(L), nextXp: L < MAX_LEVEL ? xpForLevel(L + 1) : null,
       owned: d.owned, look: this.cleanLook(acct, d.look), loadout: d.loadout, rounds: d.rounds, wins: d.wins,
-      google: !!acct.google, hasPassword: !!acct.hasPw, hasRecovery: !!d.recovery };
+      google: !!acct.google, hasPassword: !!acct.hasPw, hasRecovery: !!d.recovery,
+      ach: d.ach || {}, progress: Object.fromEntries(Object.keys(ACH_BY_STAT).map(k => [k, this.statValue(acct, k)])) };
   }
   async buy(acct, cat, id) {
     const it = item(cat, id); if (!it) throw new UserError('That item doesn\'t exist.');
@@ -236,6 +320,7 @@ class Accounts {
     if (acct.data.coins < price) throw new UserError(`You need ${price - acct.data.coins} more coins.`);
     acct.data.coins -= price; acct.data.owned.push(cat + ':' + id);
     acct.data.look = { ...acct.data.look, [cat]: id };
+    this.checkAch(acct, ['owned']);
     await this.save(acct);
   }
   async setLook(acct, raw) {
@@ -273,10 +358,13 @@ class Accounts {
       for (const cat in CATALOG) for (const [, name, , lvl] of CATALOG[cat].items) if (lvl > before && lvl <= after) unlocks.push(name);
       for (const k in LOADOUT) if (LOADOUT[k][0] > before && LOADOUT[k][0] <= after) unlocks.push('Start with: ' + k);
     }
+    acct.data.stats = acct.data.stats || {};
+    if (banked > (acct.data.stats.bestRound || 0)) acct.data.stats.bestRound = banked;
+    const ach = this.checkAch(acct, ['rounds', 'wins', 'level', 'bestRound']);
     await this.save(acct);
-    return { coins, xp, before, after, unlocks };
+    return { coins, xp, before, after, unlocks, ach: ach.map(a => a.id) };
   }
 }
 class UserError extends Error {}
 
-module.exports = { Accounts, UserError, CATALOG, LOADOUT, xpForLevel, levelFor, MAX_LEVEL, isFree };
+module.exports = { Accounts, UserError, CATALOG, ACHIEVEMENTS, LOADOUT, xpForLevel, levelFor, MAX_LEVEL, isFree };

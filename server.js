@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { EventEmitter } = require('events');
-const { Accounts, UserError, CATALOG, LOADOUT: LOADOUT_CFG, xpForLevel, MAX_LEVEL } = require('./accounts');
+const { Accounts, UserError, CATALOG, ACHIEVEMENTS, LOADOUT: LOADOUT_CFG, xpForLevel, MAX_LEVEL } = require('./accounts');
 const { verifyGoogleToken } = require('./googleauth');
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || null;
 
@@ -141,7 +141,8 @@ const TIRED_AFTER = 2, TIRED_SECS = 10; // bonking empty-handed players this man
 const pick = a => a[Math.random() * a.length | 0];
 // ---------- cosmetics (bought in each player's wardrobe; the server only checks the ids are real) ----------
 const LOOK_IDS = Object.fromEntries(Object.entries(CATALOG).map(([k, v]) => [k, v.items.map(i => i[0])]));
-const JACKET_HEX = { red: '#c0392b', yellow: '#e2b822', pink: '#e84393', orange: '#e67e22', purple: '#8e44ad', sky: '#3fa7d6', black: '#2b2b2b', white: '#ecebe4', camo: '#5d6b3a', hivis: '#cde62a', stripes: '#1f3b73', tartan: '#a3262a' };
+const JACKET_HEX = { red: '#c0392b', yellow: '#e2b822', pink: '#e84393', orange: '#e67e22', purple: '#8e44ad', sky: '#3fa7d6', black: '#2b2b2b', white: '#ecebe4', camo: '#5d6b3a', hivis: '#cde62a', stripes: '#1f3b73', tartan: '#a3262a',
+  tux: '#1d1d1d', chefwhites: '#f4f1e8', santasuit: '#c0392b', skeleton: '#1d1d1d', banana: '#f2d13c', ghost: '#f1f1f1', wizrobe: '#4b2a8a', hero: '#2d5f9e', knight: '#9aa4ad', dino: '#4caf50', astro: '#eef1f4' };
 const cleanLook = (raw, acct) => accounts.cleanLook(acct || null, raw); // guests only get the free items
 function botLook() {
   const l = {}; for (const k in LOOK_IDS) l[k] = k === 'jacket' ? 'auto' : (k === 'pet' || k === 'trail') && Math.random() < 0.6 ? 'none' : pick(LOOK_IDS[k]); return l;
@@ -255,6 +256,11 @@ class Room {
     this.resetWorld();
     const humans = [...this.clients.values()];
     humans.forEach((c, i) => this.diggers.push(this.makeDigger(c.id, c.name, c.col, false, i, c.look, c.lvl)));
+    for (const [ws, c] of this.clients) if (c.acct) {
+      const got = accounts.checkAch(c.acct, ['rounds', 'wins', 'level', 'owned']); // catches up older accounts
+      if (got.length) this.send(ws, { t: 'profile', profile: accounts.profile(c.acct), ach: got.map(x => x.id) });
+      this.stat(c.id, 'maps', this.mapId, 'set');
+    }
     const bots = Math.max(0, MIN_DIGGERS - humans.length);
     for (let i = 0; i < bots; i++) { const [n, col] = BOTS[i]; this.diggers.push(this.makeDigger(1000 + i, n, col, true, humans.length + i)); }
     for (const d of this.diggers) this.fit(d);
@@ -378,6 +384,7 @@ class Room {
     const r = holeR(item.ti);
     this.holes.push({ x: item.x, y: item.y, r });
     this.ev.push(['dug', item.id, d.id, item.decoy ? 1 : 0]);
+    if (!item.decoy){ this.stat(d.id, 'finds'); if (item.ti === 3) this.stat(d.id, 'gold'); if (item.ti === BOX) this.stat(d.id, 'boxes'); if (item.wreck) this.stat(d.id, 'wreck'); }
     if (this.holes.length > 150) { this.holes.shift(); this.ev.push(['hshift']); }
     if (d.isBot) pushOut(d, item.x, item.y, r + 11);
     if (item.decoy) {
@@ -1092,7 +1099,37 @@ class Room {
     this.updateHeavies(dt);
     this.flush();
   }
+  // ----- achievements: count things signed-in players do, and tell them the moment one unlocks -----
+  clientOf(id) { for (const [ws, c] of this.clients) if (c.id === id) return [ws, c]; return [null, null]; }
+  stat(id, key, n = 1, mode) {
+    if (id == null || id >= 1000) return; // bots and the detecting club don't have accounts
+    const [ws, c] = this.clientOf(id); if (!c || !c.acct) return;
+    const got = accounts.track(c.acct, key, n, mode);
+    if (got.length) this.send(ws, { t: 'profile', profile: accounts.profile(c.acct), ach: got.map(a => a.id) });
+  }
+  // most stats come straight off the events the clients already get
+  statsFromEvents(evs) {
+    const ids = s => String(s || '').split(',').filter(Boolean).map(Number);
+    for (const e of evs) switch (e[0]) {
+      case 'bank': this.stat(e[1], 'banked', e[2]); if (this.timeLeft <= 5) this.stat(e[1], 'clutch'); break;
+      case 'hbank': for (const id of ids(e[2])) this.stat(id, 'heavies'); break;
+      case 'bonk': if (e[3] >= 0) { this.stat(e[1], 'robs'); if (e[5]) this.stat(e[1], 'gloves'); } break;
+      case 'shock': this.stat(e[1], 'shockMax', ids(e[4]).length, 'max'); break;
+      case 'slip': if (e[5] != null && e[5] !== e[2]) this.stat(e[5], 'slips'); break;
+      case 'hbreak': this.stat(e[2], 'smashes'); break;
+      case 'mhit': { const m = this.magpies.find(x => x.id === e[1]); this.stat(e[2], m && m.kind === 'dog' ? 'dogs' : 'birds'); break; }
+      case 'strike': for (const id of ids(e[4])) this.stat(id, 'struck'); break;
+      case 'runover': this.stat(e[1], 'runover'); break;
+      case 'keeper': this.stat(e[1], 'keeper'); break;
+      case 'icecream': this.stat(e[1], 'icecream'); break;
+      case 'buried': this.stat(e[1], 'buried'); break;
+      case 'wipeout': this.stat(e[1], 'wipeout'); break;
+      case 'crategot': this.stat(e[2], 'crates'); break;
+      case 'decoyed': this.stat(e[1], 'decoyed'); break;
+    }
+  }
   flush() {
+    this.statsFromEvents(this.ev);
     const s = {
       t: 's', tl: Math.round(this.timeLeft * 10) / 10, sea: this.map.tide ? Math.round(this.sea) : undefined,
       d: this.diggers.map(d => [d.id, Math.round(d.x), Math.round(d.y), Math.round(d.dir * 100) / 100, d.stun > 0 ? 1 : 0, d.immune > 0 ? 1 : 0,
@@ -1138,7 +1175,7 @@ async function api(req, res) {
   const send = (code, obj) => { res.writeHead(code, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(obj)); };
   const path = req.url.split('?')[0];
   try {
-    if (path === '/api/catalog') return send(200, { catalog: CATALOG, loadout: LOADOUT_CFG, levels: Array.from({ length: MAX_LEVEL }, (_, i) => xpForLevel(i + 1)), persistent: accounts.persistent, dbError, googleClientId: GOOGLE_CLIENT_ID });
+    if (path === '/api/catalog') return send(200, { catalog: CATALOG, achievements: ACHIEVEMENTS, loadout: LOADOUT_CFG, levels: Array.from({ length: MAX_LEVEL }, (_, i) => xpForLevel(i + 1)), persistent: accounts.persistent, dbError, googleClientId: GOOGLE_CLIENT_ID });
     if (req.method !== 'POST') return send(405, { error: 'Use POST.' });
     const body = await readJson(req);
     const ip = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
